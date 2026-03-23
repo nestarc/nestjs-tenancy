@@ -22,3 +22,9 @@ lerna-debug.log*
 # temp directory
 .temp
 .tmp
+
+/coverage
+.idea
+.vscode
+*.swp
+*.swo
