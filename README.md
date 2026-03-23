@@ -16,6 +16,20 @@ One line of code. Automatic tenant isolation.
 - **SQL injection safe** — `set_config()` with bind parameters, plus UUID validation by default
 - **NestJS 10 & 11** compatible, **Prisma 5 & 6** compatible
 
+## Performance
+
+Measured with PostgreSQL 16, Prisma 6, 1005 rows, 500 iterations on Apple Silicon:
+
+| Scenario | Avg | P50 | P95 | P99 |
+|----------|-----|-----|-----|-----|
+| Direct query (no extension, 1005 rows) | 3.74ms | 3.07ms | 6.13ms | 10.44ms |
+| **findMany with extension** (402 rows via RLS) | **2.91ms** | **2.66ms** | **4.59ms** | **6.52ms** |
+| **findFirst with extension** (1 row via RLS) | **1.23ms** | **1.20ms** | **1.62ms** | **2.00ms** |
+
+The batch transaction overhead (`set_config` + query) is negligible — RLS reduces the returned row count, which often makes queries faster than unfiltered equivalents.
+
+> Reproduce: `docker compose up -d && npx ts-node benchmarks/rls-overhead.ts`
+
 ## Prerequisites
 
 - Node.js >= 18
