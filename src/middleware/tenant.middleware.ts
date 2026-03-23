@@ -43,6 +43,6 @@ export class TenantMiddleware implements NestMiddleware {
       throw new BadRequestException('Invalid tenant ID format');
     }
 
-    this.context.run(tenantId, next);
+    this.context.run(tenantId, () => next());
   }
 }
