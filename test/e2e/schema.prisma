@@ -18,3 +18,11 @@ model User {
 
   @@map("users")
 }
+
+model Country {
+  id   Int    @id @default(autoincrement())
+  name String
+  code String
+
+  @@map("countries")
+}

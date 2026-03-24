@@ -59,6 +59,7 @@ describe('Prisma Extension + RLS Integration', () => {
   afterAll(async () => {
     if (prisma) await prisma.$disconnect();
     await adminClient.query('DROP TABLE IF EXISTS users CASCADE');
+    await adminClient.query('DROP TABLE IF EXISTS countries CASCADE');
     await adminClient.end();
   });
 
@@ -127,5 +128,84 @@ describe('Prisma Extension + RLS Integration', () => {
     expect(rows2.every((r: any) => r.tenant_id === TENANT_2)).toBe(true);
     expect(rows1).toHaveLength(2);
     expect(rows2).toHaveLength(2);
+  });
+});
+
+describe('Prisma Extension v0.2.0 Features', () => {
+  let adminClient: Client;
+  let context: TenancyContext;
+  let service: TenancyService;
+  let prisma: any;
+
+  beforeAll(async () => {
+    adminClient = new Client({ connectionString: ADMIN_URL });
+    await adminClient.connect();
+
+    const setupSql = fs.readFileSync(path.join(__dirname, 'setup.sql'), 'utf-8');
+    await adminClient.query(setupSql);
+
+    const generatedPath = path.join(__dirname, 'generated');
+    const prismaModule = require(generatedPath);
+    const PrismaClient = prismaModule.PrismaClient;
+
+    context = new TenancyContext();
+    service = new TenancyService(context);
+
+    const basePrisma = new PrismaClient({ datasourceUrl: APP_URL });
+    prisma = basePrisma.$extends(
+      createPrismaTenancyExtension(service, {
+        autoInjectTenantId: true,
+        tenantIdField: 'tenant_id',
+        sharedModels: ['Country'],
+      }),
+    );
+
+    await prisma.$connect();
+  }, 30000);
+
+  afterAll(async () => {
+    // Cleanup auto-injected rows
+    await adminClient.query(`DELETE FROM users WHERE name = 'AutoInject'`);
+    if (prisma) await prisma.$disconnect();
+    await adminClient.end();
+  });
+
+  it('should auto-inject tenant_id on create', async () => {
+    const user = await new Promise<any>((resolve, reject) => {
+      context.run(TENANT_1, async () => {
+        try {
+          resolve(
+            await prisma.user.create({
+              data: { name: 'AutoInject', email: 'auto@test.com' },
+            }),
+          );
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+
+    expect(user.tenant_id).toBe(TENANT_1);
+    expect(user.name).toBe('AutoInject');
+  });
+
+  it('should read shared table (Country) regardless of tenant context', async () => {
+    const countries = await new Promise<any[]>((resolve, reject) => {
+      context.run(TENANT_1, async () => {
+        try {
+          resolve(await prisma.country.findMany());
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+
+    expect(countries).toHaveLength(2);
+    expect(countries.map((c: any) => c.code).sort()).toEqual(['KR', 'US']);
+  });
+
+  it('should read shared table without tenant context', async () => {
+    const countries = await prisma.country.findMany();
+    expect(countries).toHaveLength(2);
   });
 });
