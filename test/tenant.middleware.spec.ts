@@ -142,6 +142,38 @@ describe('TenantMiddleware', () => {
       ).rejects.toThrow('audit failed');
     });
 
+    it('should NOT call next() when onTenantNotFound returns "skip"', async () => {
+      const onTenantNotFound = jest.fn().mockReturnValue('skip');
+      const mw = createMiddleware({ onTenantNotFound });
+      const next = jest.fn();
+
+      await mw.use(mockReq(), mockRes(), next);
+
+      expect(onTenantNotFound).toHaveBeenCalled();
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('should NOT call next() when async onTenantNotFound resolves "skip"', async () => {
+      const onTenantNotFound = jest.fn().mockResolvedValue('skip');
+      const mw = createMiddleware({ onTenantNotFound });
+      const next = jest.fn();
+
+      await mw.use(mockReq(), mockRes(), next);
+
+      expect(onTenantNotFound).toHaveBeenCalled();
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('should call next() when onTenantNotFound returns void', (done) => {
+      const onTenantNotFound = jest.fn();  // returns undefined
+      const mw = createMiddleware({ onTenantNotFound });
+
+      mw.use(mockReq(), mockRes(), () => {
+        expect(onTenantNotFound).toHaveBeenCalled();
+        done();
+      });
+    });
+
     it('should not call onTenantResolved when validation fails', async () => {
       const onTenantResolved = jest.fn();
       const mw = createMiddleware({ onTenantResolved });

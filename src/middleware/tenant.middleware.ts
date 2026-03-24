@@ -34,8 +34,10 @@ export class TenantMiddleware implements NestMiddleware {
     const tenantId = await this.extractor.extract(req);
 
     if (!tenantId) {
-      await this.options.onTenantNotFound?.(req);
-      next();
+      const result = await this.options.onTenantNotFound?.(req);
+      if (result !== 'skip') {
+        next();
+      }
       return;
     }
 

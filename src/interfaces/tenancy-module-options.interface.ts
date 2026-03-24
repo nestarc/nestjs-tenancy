@@ -8,7 +8,19 @@ export interface TenancyModuleOptions {
   dbSettingKey?: string;
   validateTenantId?: (tenantId: string) => boolean | Promise<boolean>;
   onTenantResolved?: (tenantId: string, request: Request) => void | Promise<void>;
-  onTenantNotFound?: (request: Request) => void | Promise<void>;
+
+  /**
+   * Called when no tenant ID could be extracted from the request.
+   *
+   * Behavior based on return value:
+   * - `void` / `undefined`: request continues to the next middleware (observation-only hook)
+   * - `'skip'`: request continues but `next()` is NOT called — you must have already
+   *   sent a response (e.g., via injected `Response`) or thrown an exception
+   *
+   * Throwing an exception (e.g., `throw new ForbiddenException()`) always aborts
+   * the request regardless of return value.
+   */
+  onTenantNotFound?: (request: Request) => void | 'skip' | Promise<void | 'skip'>;
 }
 
 export interface TenancyModuleOptionsFactory {

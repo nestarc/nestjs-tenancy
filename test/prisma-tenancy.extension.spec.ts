@@ -317,6 +317,39 @@ describe('createPrismaTenancyExtension', () => {
       });
     });
 
+    it('should inject tenant_id on createManyAndReturn', async () => {
+      const { mockPrisma, mockTransaction } = buildMockPrisma();
+      mockTransaction.mockResolvedValue([1, [{ id: 1 }, { id: 2 }]]);
+
+      const handler = getHandlerWithAutoInject(mockPrisma);
+      const mockQuery = jest.fn().mockReturnValue(
+        Promise.resolve([{ id: 1 }, { id: 2 }]),
+      );
+
+      await new Promise<void>((resolve, reject) => {
+        context.run('tenant-id', async () => {
+          try {
+            await handler({
+              model: 'Order',
+              operation: 'createManyAndReturn',
+              args: { data: [{ name: 'A' }, { name: 'B' }] },
+              query: mockQuery,
+            });
+
+            expect(mockQuery).toHaveBeenCalledWith({
+              data: [
+                { name: 'A', tenant_id: 'tenant-id' },
+                { name: 'B', tenant_id: 'tenant-id' },
+              ],
+            });
+            resolve();
+          } catch (e) {
+            reject(e);
+          }
+        });
+      });
+    });
+
     it('should inject into upsert create but not update', async () => {
       const { mockPrisma, mockTransaction } = buildMockPrisma();
       mockTransaction.mockResolvedValue([1, { id: 1 }]);
