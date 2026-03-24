@@ -24,8 +24,15 @@ jobs:
 
       - run: npm ci
       - run: npm run lint
-      - run: npm test
+      - run: npm run test:cov
       - run: npm run build
+
+      - name: Upload coverage to Codecov
+        if: matrix.node-version == 20
+        uses: codecov/codecov-action@v5
+        with:
+          directory: ./coverage
+          fail_ci_if_error: false
 
   e2e:
     runs-on: ubuntu-latest
