@@ -345,7 +345,7 @@ TenancyModule.forRoot({
 // tenant1.app.com → 'tenant1'
 ```
 
-> **Note:** Requires the `psl` package for accurate ccTLD parsing. Install: `npm install psl`
+> **Note:** Uses the `psl` package for accurate ccTLD parsing (installed automatically as a dependency).
 
 #### JWT Claim
 

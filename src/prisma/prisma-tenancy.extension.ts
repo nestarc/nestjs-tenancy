@@ -29,7 +29,7 @@ export interface PrismaTenancyExtensionOptions {
  * requires string interpolation. This eliminates SQL injection risk entirely.
  *
  * Options:
- * - `dbSettingKey`: PostgreSQL session variable name (default: app.tenant_id)
+ * - `dbSettingKey`: PostgreSQL session variable name (default: app.current_tenant)
  * - `autoInjectTenantId`: Automatically inject tenant ID into write operations
  * - `tenantIdField`: Field name to inject tenant ID into (default: tenant_id)
  * - `sharedModels`: Models that are shared across tenants (skips RLS and injection)

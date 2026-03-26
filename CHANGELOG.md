@@ -21,11 +21,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Migration Guide
 
-**SubdomainTenantExtractor users:** Install `psl` as a dependency:
-```bash
-npm install psl
-```
-The extractor API is unchanged. If `psl` is not installed, the constructor throws a clear error message.
+**SubdomainTenantExtractor users:** `psl` is now a direct dependency and installed automatically. No manual installation needed. The extractor API is unchanged.
 
 ## [0.2.0] - 2026-03-24
 
@@ -35,7 +31,7 @@ The extractor API is unchanged. If `psl` is not installed, the constructor throw
 - **JwtClaimTenantExtractor** — extract tenant ID from JWT payload claim (no signature verification; requires prior auth middleware)
 - **PathTenantExtractor** — extract tenant ID from URL path parameters (e.g., `/api/tenants/:tenantId/...`)
 - **CompositeTenantExtractor** — fallback chain of multiple extractors (first non-null wins)
-- **Lifecycle hooks** — `onTenantResolved(tenantId, req)` and `onTenantNotFound(req)` callbacks on `TenancyModuleOptions`
+- **Lifecycle hooks** — `onTenantResolved(tenantId, req)` and `onTenantNotFound(req, res)` callbacks on `TenancyModuleOptions`
 - **`onTenantNotFound` control flow** — return `'skip'` to prevent `next()` from being called, enabling custom error handling without throwing
 - **`autoInjectTenantId`** option on `createPrismaTenancyExtension` — automatically injects tenant ID into `create`, `createMany`, `createManyAndReturn`, and `upsert` operations
 - **`sharedModels`** option — whitelist models that bypass RLS entirely (e.g., `Country`, `Currency`)
