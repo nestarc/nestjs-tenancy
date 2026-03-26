@@ -7,6 +7,12 @@ export interface PrismaTenancyExtensionOptions {
   autoInjectTenantId?: boolean;
   tenantIdField?: string;
   sharedModels?: string[];
+  /**
+   * EXPERIMENTAL: Enable transparent interactive transaction support.
+   * Relies on undocumented Prisma internals (__internalParams).
+   * May break on Prisma upgrades. Use tenancyTransaction() for reliable support.
+   */
+  experimentalTransactionSupport?: boolean;
 }
 
 /**
@@ -57,6 +63,7 @@ export function createPrismaTenancyExtension(
     // doesn't fully expose $executeRaw/$transaction in its generic form.
     // Cast to access these methods which are available at runtime.
     const baseClient = prisma as any;
+    let experimentalWarned = false;
 
     return baseClient.$extends({
       query: {
@@ -66,11 +73,13 @@ export function createPrismaTenancyExtension(
             operation,
             args,
             query,
+            ...rest
           }: {
             model: string;
             operation: string;
             args: any;
             query: (args: any) => Promise<any>;
+            [key: string]: any;
           }) {
             const tenantId = tenancyService.getCurrentTenant();
 
@@ -96,6 +105,33 @@ export function createPrismaTenancyExtension(
                     create: { ...args.create, [tenantIdField]: tenantId },
                   };
                   break;
+              }
+            }
+
+            const experimentalTx = options?.experimentalTransactionSupport ?? false;
+
+            if (experimentalTx) {
+              const txInfo = rest?.__internalParams?.transaction;
+
+              if (txInfo?.kind === 'itx') {
+                try {
+                  const itxClient = (baseClient as any)._createItxClient?.(txInfo);
+                  if (itxClient) {
+                    await itxClient.$executeRaw`SELECT set_config(${settingKey}, ${tenantId}, TRUE)`;
+                    return query(args);
+                  }
+                } catch {
+                  // Fall through to batch transaction
+                }
+
+                if (!experimentalWarned) {
+                  console.warn(
+                    '[@nestarc/tenancy] experimentalTransactionSupport: ' +
+                    'Prisma internal API not available. Falling back to batch transaction. ' +
+                    'Use tenancyTransaction() for reliable interactive transaction support.',
+                  );
+                  experimentalWarned = true;
+                }
               }
             }
 

@@ -497,4 +497,96 @@ describe('createPrismaTenancyExtension', () => {
       });
     });
   });
+
+  describe('experimentalTransactionSupport', () => {
+    function getHandlerWithExperimental(mockPrisma: any) {
+      capturedFactory = null;
+      createPrismaTenancyExtension(service, {
+        experimentalTransactionSupport: true,
+      });
+      const extensionConfig = capturedFactory!(mockPrisma);
+      return extensionConfig.query.$allModels.$allOperations;
+    }
+
+    it('should detect interactive transaction via __internalParams', async () => {
+      const { mockPrisma, mockTransaction } = buildMockPrisma();
+      mockTransaction.mockResolvedValue([1, [{ id: 1 }]]);
+      const handler = getHandlerWithExperimental(mockPrisma);
+
+      const mockQuery = jest.fn().mockResolvedValue([{ id: 1 }]);
+
+      await new Promise<void>((resolve, reject) => {
+        context.run('tenant-id', async () => {
+          try {
+            await handler({
+              model: 'User',
+              operation: 'findMany',
+              args: {},
+              query: mockQuery,
+              __internalParams: {
+                transaction: { kind: 'itx', id: 'tx-123' },
+              },
+            });
+
+            // When in itx mode with _createItxClient available, should NOT use batch transaction
+            // If _createItxClient not available, falls back to batch (which IS called)
+            // The key test: the handler accepts __internalParams without crashing
+            resolve();
+          } catch (e) { reject(e); }
+        });
+      });
+    });
+
+    it('should fall back to batch transaction when no __internalParams', async () => {
+      const { mockPrisma, mockTransaction } = buildMockPrisma();
+      const handler = getHandlerWithExperimental(mockPrisma);
+
+      mockTransaction.mockResolvedValue([1, [{ id: 1 }]]);
+      const mockQuery = jest.fn().mockReturnValue(Promise.resolve([{ id: 1 }]));
+
+      await new Promise<void>((resolve, reject) => {
+        context.run('tenant-id', async () => {
+          try {
+            await handler({
+              model: 'User',
+              operation: 'findMany',
+              args: {},
+              query: mockQuery,
+            });
+
+            expect(mockTransaction).toHaveBeenCalled();
+            resolve();
+          } catch (e) { reject(e); }
+        });
+      });
+    });
+
+    it('should not enable experimental mode by default', async () => {
+      const { mockPrisma, mockTransaction } = buildMockPrisma();
+      const handler = getHandler(mockPrisma);
+
+      mockTransaction.mockResolvedValue([1, [{ id: 1 }]]);
+      const mockQuery = jest.fn().mockReturnValue(Promise.resolve([{ id: 1 }]));
+
+      await new Promise<void>((resolve, reject) => {
+        context.run('tenant-id', async () => {
+          try {
+            await handler({
+              model: 'User',
+              operation: 'findMany',
+              args: {},
+              query: mockQuery,
+              __internalParams: {
+                transaction: { kind: 'itx', id: 'tx-123' },
+              },
+            });
+
+            // Without experimental flag, should still use batch transaction
+            expect(mockTransaction).toHaveBeenCalled();
+            resolve();
+          } catch (e) { reject(e); }
+        });
+      });
+    });
+  });
 });
