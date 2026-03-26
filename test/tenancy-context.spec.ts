@@ -64,4 +64,43 @@ describe('TenancyContext', () => {
       done();
     });
   });
+
+  describe('runWithoutTenant', () => {
+    it('should return null tenant inside runWithoutTenant()', (done) => {
+      context.run('tenant-abc', () => {
+        context.runWithoutTenant(() => {
+          expect(context.getTenantId()).toBeNull();
+          done();
+        });
+      });
+    });
+
+    it('should restore tenant after runWithoutTenant() completes', async () => {
+      await new Promise<void>((resolve) => {
+        context.run('tenant-abc', async () => {
+          await context.runWithoutTenant(async () => {
+            expect(context.getTenantId()).toBeNull();
+          });
+          expect(context.getTenantId()).toBe('tenant-abc');
+          resolve();
+        });
+      });
+    });
+
+    it('should propagate errors from callback', async () => {
+      await expect(
+        context.runWithoutTenant(async () => {
+          throw new Error('test error');
+        }),
+      ).rejects.toThrow('test error');
+    });
+
+    it('should work without existing tenant context', async () => {
+      const result = await context.runWithoutTenant(async () => {
+        expect(context.getTenantId()).toBeNull();
+        return 'ok';
+      });
+      expect(result).toBe('ok');
+    });
+  });
 });

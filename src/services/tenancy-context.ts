@@ -16,4 +16,10 @@ export class TenancyContext {
   getTenantId(): string | null {
     return TenancyContext.storage.getStore()?.tenantId ?? null;
   }
+
+  runWithoutTenant<T>(callback: () => T | Promise<T>): Promise<T> {
+    return Promise.resolve(
+      TenancyContext.storage.run({ tenantId: null as unknown as string }, () => callback()),
+    );
+  }
 }
