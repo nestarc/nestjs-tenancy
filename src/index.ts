@@ -19,3 +19,5 @@ export type { PathExtractorOptions } from './extractors/path.extractor';
 export { createPrismaTenancyExtension } from './prisma/prisma-tenancy.extension';
 export type { PrismaTenancyExtensionOptions } from './prisma/prisma-tenancy.extension';
 export { TENANCY_MODULE_OPTIONS } from './tenancy.constants';
+export { tenancyTransaction } from './prisma/tenancy-transaction';
+export type { TenancyTransactionOptions } from './prisma/tenancy-transaction';
