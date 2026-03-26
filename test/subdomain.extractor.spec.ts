@@ -36,4 +36,40 @@ describe('SubdomainTenantExtractor', () => {
     const req = { hostname: 'localhost' } as any;
     expect(extractor.extract(req)).toBeNull();
   });
+
+  it('should extract subdomain from ccTLD (co.uk)', () => {
+    const extractor = new SubdomainTenantExtractor();
+    const req = { hostname: 'tenant1.example.co.uk' } as any;
+    expect(extractor.extract(req)).toBe('tenant1');
+  });
+
+  it('should return null for bare ccTLD domain', () => {
+    const extractor = new SubdomainTenantExtractor();
+    const req = { hostname: 'example.co.uk' } as any;
+    expect(extractor.extract(req)).toBeNull();
+  });
+
+  it('should extract subdomain from co.jp', () => {
+    const extractor = new SubdomainTenantExtractor();
+    const req = { hostname: 'tenant1.example.co.jp' } as any;
+    expect(extractor.extract(req)).toBe('tenant1');
+  });
+
+  it('should exclude www from ccTLD', () => {
+    const extractor = new SubdomainTenantExtractor();
+    const req = { hostname: 'www.example.co.uk' } as any;
+    expect(extractor.extract(req)).toBeNull();
+  });
+
+  it('should return null for IP address', () => {
+    const extractor = new SubdomainTenantExtractor();
+    const req = { hostname: '192.168.1.1' } as any;
+    expect(extractor.extract(req)).toBeNull();
+  });
+
+  it('should handle com.au TLD', () => {
+    const extractor = new SubdomainTenantExtractor();
+    const req = { hostname: 'tenant1.example.com.au' } as any;
+    expect(extractor.extract(req)).toBe('tenant1');
+  });
 });
