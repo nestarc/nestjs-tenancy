@@ -181,4 +181,62 @@ describe('CLI init', () => {
     const sql = fs.readFileSync(path.join(tmpDir, 'tenancy-setup.sql'), 'utf-8');
     expect(sql).toBe('existing content');
   });
+
+  it('should log "No schema.prisma found." when schema is absent', async () => {
+    // tmpDir has no schema.prisma
+    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    const prompts = require('prompts') as jest.Mock;
+    prompts.mockResolvedValue({
+      extractor: 'Header (X-Tenant-Id)',
+      tenantFormat: 'UUID',
+      dbSettingKey: 'app.current_tenant',
+      autoInject: false,
+      sharedModels: '',
+    });
+
+    await runInit({ cwd: tmpDir });
+
+    expect(consoleSpy).toHaveBeenCalledWith('No schema.prisma found.');
+    consoleSpy.mockRestore();
+  });
+
+  it('should return early when user cancels (no extractor in response)', async () => {
+    const prompts = require('prompts') as jest.Mock;
+    // prompts returns an empty object (user hit Ctrl+C / cancelled)
+    prompts.mockResolvedValue({});
+
+    // Should not throw and should not create output files
+    await runInit({ cwd: tmpDir });
+
+    expect(fs.existsSync(path.join(tmpDir, 'tenancy-setup.sql'))).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, 'tenancy.module-setup.ts'))).toBe(false);
+  });
+
+  it('should exit with error when prompts package is not available', async () => {
+    // Temporarily make require('prompts') throw
+    const mockExit = jest.spyOn(process, 'exit').mockImplementation((_code?: string | number | null | undefined) => {
+      throw new Error('process.exit called');
+    });
+    const mockError = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    // We need to reload init.ts with prompts failing.
+    // Use jest.resetModules to clear the module registry and mock prompts to throw.
+    jest.resetModules();
+    jest.doMock('prompts', () => {
+      throw new Error('Cannot find module prompts');
+    });
+
+    const { runInit: runInitFresh } = await import('../../src/cli/init');
+
+    await expect(runInitFresh({ cwd: tmpDir })).rejects.toThrow('process.exit called');
+    expect(mockError).toHaveBeenCalledWith(
+      expect.stringContaining('The "prompts" package is required'),
+    );
+
+    mockExit.mockRestore();
+    mockError.mockRestore();
+    jest.resetModules();
+    jest.doMock('prompts', () => jest.fn());
+  });
 });
