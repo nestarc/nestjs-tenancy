@@ -18,6 +18,10 @@ One line of code. Automatic tenant isolation.
 - **Lifecycle hooks** — `onTenantResolved` / `onTenantNotFound` for logging, auditing, custom error handling
 - **Auto-inject tenant ID** — Optionally inject `tenant_id` into `create` / `createMany` / `upsert` operations
 - **Shared models** — Whitelist models that skip RLS (e.g., `Country`, `Currency`)
+- **`withoutTenant()`** — programmatic bypass for background jobs and admin queries
+- **`tenancyTransaction()`** — interactive transaction support with RLS
+- **CLI scaffolding** — `npx @nestarc/tenancy init` generates RLS policies and module config
+- **ccTLD-aware subdomain extraction** — accurate parsing for `.co.uk`, `.co.jp`, `.com.au`, etc.
 - **SQL injection safe** — `set_config()` with bind parameters, plus UUID validation by default
 - **NestJS 10 & 11** compatible, **Prisma 5 & 6** compatible
 
@@ -129,6 +133,31 @@ createPrismaTenancyExtension(tenancyService, {
 
 > **Note:** When using interactive transactions (`$transaction(async (tx) => ...)`), the `set_config` call runs in a separate connection. Call `set_config` manually as the first statement inside interactive transactions.
 
+### Interactive Transactions
+
+The default Prisma extension wraps queries in batch transactions, which breaks inside `$transaction(async (tx) => ...)`. Use the `tenancyTransaction()` helper:
+
+```typescript
+import { tenancyTransaction } from '@nestarc/tenancy';
+
+await tenancyTransaction(prisma, tenancyService, async (tx) => {
+  const user = await tx.user.findFirst();
+  await tx.order.create({ data: { userId: user.id } });
+});
+```
+
+**Experimental: Transparent Mode**
+
+```typescript
+const prisma = basePrisma.$extends(
+  createPrismaTenancyExtension(tenancyService, {
+    experimentalTransactionSupport: true, // opt-in
+  })
+);
+```
+
+> ⚠️ `experimentalTransactionSupport` relies on undocumented Prisma internals. It may break on Prisma upgrades. Use `tenancyTransaction()` for production-critical code.
+
 ### 4. Use it
 
 ```typescript
@@ -231,6 +260,25 @@ export class HealthController {
 }
 ```
 
+### Programmatic Bypass
+
+Use `withoutTenant()` for background jobs, admin dashboards, or any code that needs to query across all tenants:
+
+```typescript
+// Background job — no HTTP request context
+const allUsers = await tenancyService.withoutTenant(async () => {
+  return prisma.user.findMany(); // Returns ALL tenants' data
+});
+
+// Inside an HTTP handler with @BypassTenancy()
+// The decorator already bypasses both the guard AND Prisma extension
+@Get('/admin/users')
+@BypassTenancy()
+async getAllUsers() {
+  return this.prisma.user.findMany(); // Works without tenant header
+}
+```
+
 ### Tenant Extractors
 
 Five built-in extractors cover common multi-tenancy patterns:
@@ -256,6 +304,8 @@ TenancyModule.forRoot({
 })
 // tenant1.app.com → 'tenant1'
 ```
+
+> **Note:** Requires the `psl` package for accurate ccTLD parsing. Install: `npm install psl`
 
 #### JWT Claim
 
@@ -375,6 +425,18 @@ HTTP Request (X-Tenant-Id: 550e8400-e29b-41d4-a716-446655440000)
           → Prisma Extension ($transaction → set_config() → query)
             → PostgreSQL RLS (automatic row filtering)
 ```
+
+### CLI
+
+Scaffold RLS policies and module configuration from your Prisma schema:
+
+```bash
+npx @nestarc/tenancy init
+```
+
+This generates:
+- `tenancy-setup.sql` — PostgreSQL RLS policies, roles, and grants
+- `tenancy.module-setup.ts` — NestJS module registration code
 
 ## License
 

@@ -1,6 +1,6 @@
 # @nestarc/tenancy Roadmap
 
-> v0.2.0 구현 완료 (2026-03-24). 이 문서는 다음 단계를 정리합니다.
+> v0.3.0 구현 완료 (2026-03-26). 이 문서는 다음 단계를 정리합니다.
 
 ---
 
@@ -40,21 +40,21 @@ README에 PostgreSQL 16 + Prisma 6 기반 벤치마크 결과 공개 완료.
 
 ---
 
-## Phase 3: 생태계 확장 (v0.3.0)
+## Phase 3: 생태계 확장 (v0.3.0) ✅ 완료
 
-### 3-0. v0.2.0에서 이월된 항목
+### 3-0. v0.2.0에서 이월된 항목 ✅
 
-- **`@BypassTenancy()` Prisma 레벨 지원**: 가드뿐 아니라 Prisma 쿼리에서도 bypass
-- **Subdomain ccTLD 대응**: `baseDomain` 옵션 추가 (`.co.uk` 등 multi-part TLD)
-- **Interactive transaction 지원**: 호출자 트랜잭션 컨텍스트에 `set_config` 전파
+- **`withoutTenant()` 프로그래밍 방식 bypass**: 백그라운드 작업, 어드민 대시보드, 크로스 테넌트 쿼리용 ✅
+- **Subdomain ccTLD 대응**: `psl` 라이브러리로 정확한 서브도메인 추출 (`.co.uk` 등 multi-part TLD) ✅
+- **`tenancyTransaction()` helper**: Interactive transaction 내 RLS 올바른 동작 보장 ✅
+- **`experimentalTransactionSupport`**: Prisma 내부 API를 통한 투명한 interactive transaction 지원 (opt-in) ✅
 
-### 3-1. CLI 도구
+### 3-1. CLI 도구 ✅
 
 ```bash
 npx @nestarc/tenancy init
-# → setup.sql 생성 (RLS 정책 + app_user 롤)
-# → schema.prisma에 tenant_id 컬럼 추가 가이드
-# → TenancyModule 등록 코드 scaffold
+# → tenancy-setup.sql 생성 (RLS 정책 + 롤 + grants)
+# → tenancy.module-setup.ts 생성 (TenancyModule 등록 코드)
 ```
 
 **도입 비용을 0에 가깝게** 만든다.
@@ -118,8 +118,8 @@ Prisma 전용이라는 한계를 벗어나면 사용자 풀이 넓어진다.
 ```
 ✅ v0.1.0 (완료)    코어 모듈 + 벤치마크 공개
 ✅ v0.2.0 (완료)    다중 추출 전략 + Lifecycle Hooks + Prisma 고도화
-→ v0.3.0 (다음)    CLI + 다중 DB + ORM 어댑터 + v0.2.0 이월 항목
-  v1.0.0           보안 강화 + 운영 도구 + 문서 사이트
+✅ v0.3.0 (완료)    withoutTenant() + tenancyTransaction() + ccTLD + CLI
+→ v1.0.0 (다음)    보안 강화 + 운영 도구 + 문서 사이트 + 다중 DB + ORM 어댑터
 ```
 
 **핵심 원칙**: 직접 구현하면 30분, 하지만 테스트 + 엣지 케이스 + 문서까지 하면 3일 걸리는 것들을 라이브러리가 해결해준다.

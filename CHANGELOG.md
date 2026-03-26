@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-03-26
+
+### Added
+
+- **`withoutTenant()`** — programmatic tenant bypass on `TenancyService`. Clears tenant context inside the callback; Prisma extension automatically skips `set_config()`. Use for background jobs, admin dashboards, cross-tenant reporting, and data migrations.
+- **ccTLD support** — `SubdomainTenantExtractor` now uses the `psl` (Public Suffix List) library for accurate subdomain extraction from multi-part TLDs (`.co.uk`, `.co.jp`, `.com.au`, etc.)
+- **`tenancyTransaction()`** — standalone helper function for Prisma interactive transactions with RLS. Runs `set_config()` inside the transaction's connection, ensuring tenant isolation works correctly.
+- **`experimentalTransactionSupport`** — opt-in option on `createPrismaTenancyExtension`. Attempts transparent interactive transaction support via Prisma internal APIs. Falls back to batch transaction with runtime warning if internal API unavailable.
+- **CLI tool** — `npx @nestarc/tenancy init` scaffolds `tenancy-setup.sql` (RLS policies) and `tenancy.module-setup.ts` (module configuration) from your Prisma schema. Supports `@@map` table name mappings, shared models, and file overwrite protection.
+- E2E-ready test infrastructure for `withoutTenant()` and `tenancyTransaction()`
+
+### Changed
+
+- `SubdomainTenantExtractor` now requires the `psl` package (optional dependency)
+
+### Migration Guide
+
+**SubdomainTenantExtractor users:** Install `psl` as a dependency:
+```bash
+npm install psl
+```
+The extractor API is unchanged. If `psl` is not installed, the constructor throws a clear error message.
+
 ## [0.2.0] - 2026-03-24
 
 ### Added
