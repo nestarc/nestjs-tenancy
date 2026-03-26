@@ -14,6 +14,22 @@ const ADMIN_URL =
 const APP_URL =
   process.env.APP_DATABASE_URL ?? 'postgresql://app_user:app_user@localhost:5433/tenancy_test';
 
+// Shared admin client used across all describe blocks
+let sharedAdminClient: Client;
+
+beforeAll(async () => {
+  sharedAdminClient = new Client({ connectionString: ADMIN_URL });
+  await sharedAdminClient.connect();
+  const setupSql = fs.readFileSync(path.join(__dirname, 'setup.sql'), 'utf-8');
+  await sharedAdminClient.query(setupSql);
+}, 30000);
+
+afterAll(async () => {
+  await sharedAdminClient.query('DROP TABLE IF EXISTS users CASCADE');
+  await sharedAdminClient.query('DROP TABLE IF EXISTS countries CASCADE');
+  await sharedAdminClient.end();
+});
+
 /**
  * E2E test that verifies the Prisma extension actually applies RLS.
  *
@@ -22,29 +38,18 @@ const APP_URL =
  * correctly isolates tenant data via set_config() in batch transactions.
  */
 describe('Prisma Extension + RLS Integration', () => {
-  let adminClient: Client;
   let context: TenancyContext;
   let service: TenancyService;
   let PrismaClient: any;
   let prisma: any;
 
   beforeAll(async () => {
-    // 1. Run setup SQL as superuser
-    adminClient = new Client({ connectionString: ADMIN_URL });
-    await adminClient.connect();
-
-    const setupSql = fs.readFileSync(
-      path.join(__dirname, 'setup.sql'),
-      'utf-8',
-    );
-    await adminClient.query(setupSql);
-
-    // 2. Import the generated Prisma client (prisma generate runs before jest via test:e2e script)
+    // Import the generated Prisma client (prisma generate runs before jest via test:e2e script)
     const generatedPath = path.join(__dirname, 'generated');
     const prismaModule = require(generatedPath);
     PrismaClient = prismaModule.PrismaClient;
 
-    // 4. Create extended Prisma client as app_user (RLS applies)
+    // Create extended Prisma client as app_user (RLS applies)
     context = new TenancyContext();
     service = new TenancyService(context);
 
@@ -59,9 +64,6 @@ describe('Prisma Extension + RLS Integration', () => {
 
   afterAll(async () => {
     if (prisma) await prisma.$disconnect();
-    await adminClient.query('DROP TABLE IF EXISTS users CASCADE');
-    await adminClient.query('DROP TABLE IF EXISTS countries CASCADE');
-    await adminClient.end();
   });
 
   it('should return only tenant 1 rows through Prisma extension', async () => {
@@ -143,18 +145,11 @@ describe('Prisma Extension + RLS Integration', () => {
 });
 
 describe('Prisma Extension v0.2.0 Features', () => {
-  let adminClient: Client;
   let context: TenancyContext;
   let service: TenancyService;
   let prisma: any;
 
   beforeAll(async () => {
-    adminClient = new Client({ connectionString: ADMIN_URL });
-    await adminClient.connect();
-
-    const setupSql = fs.readFileSync(path.join(__dirname, 'setup.sql'), 'utf-8');
-    await adminClient.query(setupSql);
-
     const generatedPath = path.join(__dirname, 'generated');
     const prismaModule = require(generatedPath);
     const PrismaClient = prismaModule.PrismaClient;
@@ -175,10 +170,9 @@ describe('Prisma Extension v0.2.0 Features', () => {
   }, 30000);
 
   afterAll(async () => {
-    // Cleanup auto-injected rows
-    await adminClient.query(`DELETE FROM users WHERE name = 'AutoInject'`);
+    // Cleanup auto-injected rows created by this describe block
+    await sharedAdminClient.query(`DELETE FROM users WHERE name = 'AutoInject'`);
     if (prisma) await prisma.$disconnect();
-    await adminClient.end();
   });
 
   it('should auto-inject tenant_id on create', async () => {
@@ -222,17 +216,11 @@ describe('Prisma Extension v0.2.0 Features', () => {
 });
 
 describe('tenancyTransaction() E2E', () => {
-  let adminClient: Client;
   let context: TenancyContext;
   let service: TenancyService;
   let basePrisma: any;
 
   beforeAll(async () => {
-    adminClient = new Client({ connectionString: ADMIN_URL });
-    await adminClient.connect();
-    const setupSql = fs.readFileSync(path.join(__dirname, 'setup.sql'), 'utf-8');
-    await adminClient.query(setupSql);
-
     const PrismaClient = require(path.join(__dirname, 'generated')).PrismaClient;
     context = new TenancyContext();
     service = new TenancyService(context);
@@ -241,9 +229,9 @@ describe('tenancyTransaction() E2E', () => {
   }, 30000);
 
   afterAll(async () => {
-    await adminClient.query(`DELETE FROM users WHERE name = 'TxTest'`);
+    // Cleanup rows created by this describe block
+    await sharedAdminClient.query(`DELETE FROM users WHERE name = 'TxTest'`);
     if (basePrisma) await basePrisma.$disconnect();
-    await adminClient.end();
   });
 
   it('should apply RLS inside interactive transaction', async () => {

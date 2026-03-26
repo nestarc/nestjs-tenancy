@@ -137,7 +137,6 @@ describe('TenancyContext + RLS Integration', () => {
 
   afterAll(async () => {
     await client.end();
-    await adminClient.query('DROP TABLE IF EXISTS users CASCADE');
     await adminClient.end();
   });
 
