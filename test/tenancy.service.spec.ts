@@ -35,4 +35,44 @@ describe('TenancyService', () => {
       });
     });
   });
+
+  describe('withoutTenant', () => {
+    it('should clear tenant context inside callback', async () => {
+      await new Promise<void>((resolve) => {
+        context.run('tenant-123', async () => {
+          await service.withoutTenant(async () => {
+            expect(service.getCurrentTenant()).toBeNull();
+          });
+          resolve();
+        });
+      });
+    });
+
+    it('should restore tenant after callback completes', async () => {
+      await new Promise<void>((resolve) => {
+        context.run('tenant-123', async () => {
+          await service.withoutTenant(async () => {
+            // tenant is null here
+          });
+          expect(service.getCurrentTenant()).toBe('tenant-123');
+          resolve();
+        });
+      });
+    });
+
+    it('should return callback result', async () => {
+      const result = await service.withoutTenant(async () => {
+        return [{ id: 1 }, { id: 2 }];
+      });
+      expect(result).toEqual([{ id: 1 }, { id: 2 }]);
+    });
+
+    it('should propagate errors', async () => {
+      await expect(
+        service.withoutTenant(async () => {
+          throw new Error('service error');
+        }),
+      ).rejects.toThrow('service error');
+    });
+  });
 });

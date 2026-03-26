@@ -16,4 +16,8 @@ export class TenancyService {
     }
     return tenantId;
   }
+
+  async withoutTenant<T>(callback: () => T | Promise<T>): Promise<T> {
+    return this.context.runWithoutTenant(callback);
+  }
 }
