@@ -2,7 +2,7 @@ const args = process.argv.slice(2);
 const command = args[0];
 
 if (command === 'init') {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+   
   require('./init')
     .runInit()
     .catch((err: Error) => {

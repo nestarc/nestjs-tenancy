@@ -11,7 +11,7 @@ interface InitOptions {
 export async function runInit(options?: InitOptions): Promise<void> {
   let prompts: any;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+     
     prompts = require('prompts');
   } catch {
     console.error(

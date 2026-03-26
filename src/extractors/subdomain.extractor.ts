@@ -10,7 +10,7 @@ let pslModule: typeof import('psl') | null = null;
 function loadPsl(): typeof import('psl') {
   if (pslModule) return pslModule;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+     
     pslModule = require('psl');
     return pslModule!;
   } catch {
