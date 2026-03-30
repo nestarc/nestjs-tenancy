@@ -20,6 +20,9 @@ One line of code. Automatic tenant isolation.
 - **Shared models** — Whitelist models that skip RLS (e.g., `Country`, `Currency`)
 - **`withoutTenant()`** — programmatic bypass for background jobs and admin queries
 - **`tenancyTransaction()`** — interactive transaction support with RLS
+- **Fail-Closed mode** — `failClosed: true` blocks queries without tenant context, preventing accidental data exposure
+- **Testing utilities** — `TestTenancyModule`, `withTenant()`, `expectTenantIsolation()` via `@nestarc/tenancy/testing`
+- **Event system** — optional `@nestjs/event-emitter` integration for `tenant.resolved`, `tenant.not_found`, etc.
 - **CLI scaffolding** — `npx @nestarc/tenancy init` generates RLS policies and module config
 - **ccTLD-aware subdomain extraction** — accurate parsing for `.co.uk`, `.co.jp`, `.com.au`, etc.
 - **SQL injection safe** — `set_config()` with bind parameters, plus UUID validation by default
@@ -513,6 +516,72 @@ TenancyModule.forRoot({
 | Missing tenant header (no `@BypassTenancy`) | 403 | `Tenant ID is required` |
 | Invalid tenant ID format | 400 | `Invalid tenant ID format` |
 | Non-HTTP context (WebSocket, gRPC) | — | Guard skips (no enforcement) |
+
+## Fail-Closed Mode
+
+By default, queries without a tenant context pass through silently. Enable `failClosed` to block them:
+
+```typescript
+const prisma = new PrismaClient().$extends(
+  createPrismaTenancyExtension(tenancyService, {
+    failClosed: true, // throws TenancyContextRequiredError if no tenant
+  })
+);
+```
+
+Queries are still allowed when:
+- The model is listed in `sharedModels`
+- `withoutTenant()` is used (explicit bypass)
+
+## Testing Utilities
+
+Import from `@nestarc/tenancy/testing`:
+
+```typescript
+import { TestTenancyModule, withTenant, expectTenantIsolation } from '@nestarc/tenancy/testing';
+
+// 1. Use TestTenancyModule in unit/integration tests (no middleware or guard)
+const module = await Test.createTestingModule({
+  imports: [TestTenancyModule.register()],
+  providers: [MyService],
+}).compile();
+
+// 2. Run code in a tenant context
+const result = await withTenant('tenant-1', () => service.findAll());
+
+// 3. Assert tenant isolation in E2E tests
+await expectTenantIsolation(prisma.user, 'tenant-a-uuid', 'tenant-b-uuid');
+```
+
+## Event System
+
+Optional integration with `@nestjs/event-emitter`. Install the package and import `EventEmitterModule`:
+
+```typescript
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { TenancyEvents } from '@nestarc/tenancy';
+
+@Module({
+  imports: [
+    EventEmitterModule.forRoot(),
+    TenancyModule.forRoot({ tenantExtractor: 'x-tenant-id' }),
+  ],
+})
+export class AppModule {}
+
+// Listen for events anywhere in your app
+@Injectable()
+class TenantLogger {
+  @OnEvent(TenancyEvents.RESOLVED)
+  handleResolved({ tenantId }: { tenantId: string }) {
+    console.log(`Tenant resolved: ${tenantId}`);
+  }
+}
+```
+
+Events: `tenant.resolved`, `tenant.not_found`, `tenant.validation_failed`, `tenant.context_bypassed`.
+
+If `@nestjs/event-emitter` is not installed, events are silently skipped — no errors.
 
 ## Security
 

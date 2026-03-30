@@ -1,6 +1,6 @@
 # @nestarc/tenancy Roadmap
 
-> v0.3.0 구현 완료 (2026-03-26). 이 문서는 다음 단계를 정리합니다.
+> v0.4.0 구현 완료 (2026-03-30). 이 문서는 다음 단계를 정리합니다.
 
 ---
 
@@ -91,6 +91,29 @@ Prisma 전용이라는 한계를 벗어나면 사용자 풀이 넓어진다.
 
 ---
 
+## Phase 3.5: 프로덕션 신뢰 기반 (v0.4.0) ✅ 완료
+
+### 3.5-1. Fail-Closed 모드 ✅
+
+- `failClosed: true` 옵션 — 테넌트 컨텍스트 없으면 쿼리 차단
+- `TenancyContextRequiredError` — model/operation 정보 포함
+- `withoutTenant()` 의도적 바이패스와 구분 (`bypassed` 플래그)
+
+### 3.5-2. 테스팅 유틸리티 ✅
+
+- `TestTenancyModule.register()` — 미들웨어/가드 없는 테스트 모듈
+- `withTenant(tenantId, callback)` — 비동기 테넌트 컨텍스트 헬퍼
+- `expectTenantIsolation()` — E2E 격리 검증 assertion
+- `@nestarc/tenancy/testing` 서브패스 export
+
+### 3.5-3. 이벤트 시스템 ✅
+
+- `@nestjs/event-emitter` optional 통합
+- 4개 이벤트: `tenant.resolved`, `tenant.not_found`, `tenant.validation_failed`, `tenant.context_bypassed`
+- `TenancyEventService` — EventEmitter2 미설치 시 graceful degradation
+
+---
+
 ## Phase 4: 프로덕션 신뢰 (v1.0.0)
 
 ### 4-1. 보안 강화
@@ -119,6 +142,7 @@ Prisma 전용이라는 한계를 벗어나면 사용자 풀이 넓어진다.
 ✅ v0.1.0 (완료)    코어 모듈 + 벤치마크 공개
 ✅ v0.2.0 (완료)    다중 추출 전략 + Lifecycle Hooks + Prisma 고도화
 ✅ v0.3.0 (완료)    withoutTenant() + tenancyTransaction() + ccTLD + CLI
+✅ v0.4.0 (완료)    Fail-Closed + Testing Utilities + Event System
 → v1.0.0 (다음)    보안 강화 + 운영 도구 + 문서 사이트 + 다중 DB + ORM 어댑터
 ```
 

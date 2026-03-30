@@ -1,0 +1,27 @@
+import { TenancyContextRequiredError } from '../src/errors/tenancy-context-required.error';
+
+describe('TenancyContextRequiredError', () => {
+  it('should have correct name', () => {
+    const error = new TenancyContextRequiredError('User', 'findMany');
+    expect(error.name).toBe('TenancyContextRequiredError');
+  });
+
+  it('should store model and operation', () => {
+    const error = new TenancyContextRequiredError('Order', 'create');
+    expect(error.model).toBe('Order');
+    expect(error.operation).toBe('create');
+  });
+
+  it('should include model name in message', () => {
+    const error = new TenancyContextRequiredError('Order', 'findMany');
+    expect(error.message).toContain('Order');
+    expect(error.message).toContain('findMany');
+    expect(error.message).toContain('withoutTenant()');
+    expect(error.message).toContain('sharedModels');
+  });
+
+  it('should be an instance of Error', () => {
+    const error = new TenancyContextRequiredError('User', 'findMany');
+    expect(error).toBeInstanceOf(Error);
+  });
+});

@@ -4,6 +4,7 @@ import {
   createPrismaTenancyExtension,
   PrismaTenancyExtensionOptions,
 } from '../src/prisma/prisma-tenancy.extension';
+import { TenancyContextRequiredError } from '../src/errors/tenancy-context-required.error';
 
 /**
  * Unit tests for createPrismaTenancyExtension.
@@ -522,6 +523,123 @@ describe('createPrismaTenancyExtension', () => {
           }
         });
       });
+    });
+  });
+
+  describe('failClosed', () => {
+    function getHandlerWithFailClosed(
+      mockPrisma: any,
+      opts?: Partial<PrismaTenancyExtensionOptions>,
+    ) {
+      capturedFactory = null;
+      createPrismaTenancyExtension(service, { failClosed: true, ...opts });
+      const extensionConfig = capturedFactory!(mockPrisma);
+      return extensionConfig.query.$allModels.$allOperations;
+    }
+
+    it('should throw TenancyContextRequiredError when no tenant context', async () => {
+      const { mockPrisma } = buildMockPrisma();
+      const handler = getHandlerWithFailClosed(mockPrisma);
+
+      await expect(
+        handler({
+          model: 'Order',
+          operation: 'findMany',
+          args: {},
+          query: jest.fn(),
+        }),
+      ).rejects.toThrow(TenancyContextRequiredError);
+    });
+
+    it('should include model and operation in error', async () => {
+      const { mockPrisma } = buildMockPrisma();
+      const handler = getHandlerWithFailClosed(mockPrisma);
+
+      try {
+        await handler({
+          model: 'Order',
+          operation: 'findMany',
+          args: {},
+          query: jest.fn(),
+        });
+        fail('Should have thrown');
+      } catch (e) {
+        expect(e).toBeInstanceOf(TenancyContextRequiredError);
+        expect((e as TenancyContextRequiredError).model).toBe('Order');
+        expect((e as TenancyContextRequiredError).operation).toBe('findMany');
+        expect((e as TenancyContextRequiredError).message).toContain('Order');
+      }
+    });
+
+    it('should allow queries inside withoutTenant()', async () => {
+      const { mockPrisma } = buildMockPrisma();
+      const handler = getHandlerWithFailClosed(mockPrisma);
+      const mockQuery = jest.fn().mockResolvedValue([{ id: 1 }]);
+
+      const result = await context.runWithoutTenant(async () => {
+        return handler({
+          model: 'Order',
+          operation: 'findMany',
+          args: {},
+          query: mockQuery,
+        });
+      });
+
+      expect(mockQuery).toHaveBeenCalledWith({});
+      expect(result).toEqual([{ id: 1 }]);
+    });
+
+    it('should allow queries for sharedModels', async () => {
+      const { mockPrisma } = buildMockPrisma();
+      const handler = getHandlerWithFailClosed(mockPrisma, { sharedModels: ['Country'] });
+      const mockQuery = jest.fn().mockResolvedValue([{ code: 'US' }]);
+
+      const result = await handler({
+        model: 'Country',
+        operation: 'findMany',
+        args: {},
+        query: mockQuery,
+      });
+
+      expect(mockQuery).toHaveBeenCalledWith({});
+      expect(result).toEqual([{ code: 'US' }]);
+    });
+
+    it('should work normally with tenant context', async () => {
+      const { mockPrisma, mockTransaction } = buildMockPrisma();
+      mockTransaction.mockResolvedValue([1, [{ id: 1 }]]);
+      const handler = getHandlerWithFailClosed(mockPrisma);
+
+      await new Promise<void>((resolve, reject) => {
+        context.run('tenant-id', async () => {
+          try {
+            await handler({
+              model: 'Order',
+              operation: 'findMany',
+              args: {},
+              query: jest.fn().mockReturnValue(Promise.resolve([{ id: 1 }])),
+            });
+            expect(mockTransaction).toHaveBeenCalled();
+            resolve();
+          } catch (e) { reject(e); }
+        });
+      });
+    });
+
+    it('should NOT throw when failClosed is false (default)', async () => {
+      const { mockPrisma } = buildMockPrisma();
+      const handler = getHandler(mockPrisma);
+      const mockQuery = jest.fn().mockResolvedValue([{ id: 1 }]);
+
+      const result = await handler({
+        model: 'Order',
+        operation: 'findMany',
+        args: {},
+        query: mockQuery,
+      });
+
+      expect(mockQuery).toHaveBeenCalled();
+      expect(result).toEqual([{ id: 1 }]);
     });
   });
 

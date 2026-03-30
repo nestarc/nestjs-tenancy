@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { TenancyModule } from '../src/tenancy.module';
 import { TenancyService } from '../src/services/tenancy.service';
+import { TenancyEventService } from '../src/events/tenancy-event.service';
 import { TENANCY_MODULE_OPTIONS } from '../src/tenancy.constants';
 
 describe('TenancyModule', () => {
@@ -22,6 +23,15 @@ describe('TenancyModule', () => {
 
       const options = module.get(TENANCY_MODULE_OPTIONS);
       expect(options.tenantExtractor).toBe('x-tenant-id');
+    });
+
+    it('should provide TenancyEventService', async () => {
+      const module = await Test.createTestingModule({
+        imports: [TenancyModule.forRoot({ tenantExtractor: 'x-tenant-id' })],
+      }).compile();
+
+      const eventService = module.get(TenancyEventService);
+      expect(eventService).toBeDefined();
     });
   });
 

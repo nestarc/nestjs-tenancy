@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-03-30
+
+### Added
+
+- **Fail-Closed mode** — `failClosed: true` option on `createPrismaTenancyExtension()`. When enabled, throws `TenancyContextRequiredError` if a query is executed without a tenant context (unless the model is in `sharedModels` or `withoutTenant()` was used). Prevents accidental data exposure when RLS policies are misconfigured.
+- **Testing utilities** — new `@nestarc/tenancy/testing` subpath export with:
+  - `TestTenancyModule.register()` — lightweight NestJS test module without middleware/guard
+  - `withTenant(tenantId, callback)` — async helper to run code in tenant context (replaces verbose `new Promise + context.run` pattern)
+  - `expectTenantIsolation(prismaModel, tenantA, tenantB)` — E2E assertion that verifies no cross-tenant data leakage
+- **Event system** — optional integration with `@nestjs/event-emitter`. Emits lifecycle events:
+  - `tenant.resolved` — tenant extracted and validated successfully
+  - `tenant.not_found` — no tenant found in request
+  - `tenant.validation_failed` — tenant ID format validation failed
+  - `tenant.context_bypassed` — tenancy bypassed via `@BypassTenancy()` decorator
+- **`TenancyEventService`** — injectable service for event emission, gracefully degrades when `@nestjs/event-emitter` is not installed
+- **`isTenantBypassed()`** method on `TenancyService` — distinguishes "no tenant context" from "explicitly bypassed via `withoutTenant()`"
+- **`TenancyEvents`** constant object with typed event name constants
+- **`TenancyContextRequiredError`** — typed error class with `model` and `operation` properties
+
+### Changed
+
+- `TenancyContext` internal store now uses `{ tenantId: string | null; bypassed?: boolean }` (previously `{ tenantId: string }` with unsafe cast for `withoutTenant()`)
+- `TenancyGuard` and `TenantMiddleware` now accept `TenancyEventService` injection
+- `@nestjs/event-emitter` added as optional peer dependency (`^2.0.0 || ^3.0.0`)
+
+### Migration Guide
+
+**No breaking changes.** All new features are opt-in:
+- Fail-closed: pass `failClosed: true` to `createPrismaTenancyExtension()`
+- Events: install `@nestjs/event-emitter` and import `EventEmitterModule.forRoot()` to enable
+- Testing: import from `@nestarc/tenancy/testing`
+
 ## [0.3.0] - 2026-03-26
 
 ### Added

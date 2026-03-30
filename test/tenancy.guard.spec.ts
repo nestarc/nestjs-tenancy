@@ -2,6 +2,8 @@ import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { TenancyGuard } from '../src/guards/tenancy.guard';
 import { TenancyContext } from '../src/services/tenancy-context';
+import { TenancyEventService } from '../src/events/tenancy-event.service';
+import { TenancyEvents } from '../src/events/tenancy-events';
 
 function createMockContext(type: string = 'http', handler: Function = () => {}, classRef: Function = class {}): ExecutionContext {
   return {
@@ -12,15 +14,21 @@ function createMockContext(type: string = 'http', handler: Function = () => {}, 
   } as any;
 }
 
+function createMockEventService(): TenancyEventService & { emit: jest.Mock } {
+  return { emit: jest.fn(), onModuleInit: jest.fn() } as any;
+}
+
 describe('TenancyGuard', () => {
   let context: TenancyContext;
   let reflector: Reflector;
+  let eventService: ReturnType<typeof createMockEventService>;
   let guard: TenancyGuard;
 
   beforeEach(() => {
     context = new TenancyContext();
     reflector = new Reflector();
-    guard = new TenancyGuard(context, reflector);
+    eventService = createMockEventService();
+    guard = new TenancyGuard(context, reflector, eventService);
   });
 
   it('should allow when tenant is present', (done) => {
@@ -45,5 +53,22 @@ describe('TenancyGuard', () => {
   it('should skip when @BypassTenancy is set', () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(true);
     expect(guard.canActivate(createMockContext())).toBe(true);
+  });
+
+  it('should emit tenant.context_bypassed when @BypassTenancy is set', () => {
+    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(true);
+    guard.canActivate(createMockContext());
+    expect(eventService.emit).toHaveBeenCalledWith(
+      TenancyEvents.CONTEXT_BYPASSED,
+      { reason: 'decorator' },
+    );
+  });
+
+  it('should NOT emit events when tenant is present', (done) => {
+    context.run('tenant-123', () => {
+      guard.canActivate(createMockContext());
+      expect(eventService.emit).not.toHaveBeenCalled();
+      done();
+    });
   });
 });

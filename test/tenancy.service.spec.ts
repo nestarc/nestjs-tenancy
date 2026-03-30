@@ -36,6 +36,25 @@ describe('TenancyService', () => {
     });
   });
 
+  describe('isTenantBypassed', () => {
+    it('should return false when no context is set', () => {
+      expect(service.isTenantBypassed()).toBe(false);
+    });
+
+    it('should return false inside tenant context', (done) => {
+      context.run('tenant-123', () => {
+        expect(service.isTenantBypassed()).toBe(false);
+        done();
+      });
+    });
+
+    it('should return true inside withoutTenant()', async () => {
+      await service.withoutTenant(async () => {
+        expect(service.isTenantBypassed()).toBe(true);
+      });
+    });
+  });
+
   describe('withoutTenant', () => {
     it('should clear tenant context inside callback', async () => {
       await new Promise<void>((resolve) => {

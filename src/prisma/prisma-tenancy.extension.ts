@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { TenancyService } from '../services/tenancy.service';
+import { TenancyContextRequiredError } from '../errors/tenancy-context-required.error';
 import { DEFAULT_DB_SETTING_KEY } from '../tenancy.constants';
 
 export interface PrismaTenancyExtensionOptions {
@@ -7,6 +8,15 @@ export interface PrismaTenancyExtensionOptions {
   autoInjectTenantId?: boolean;
   tenantIdField?: string;
   sharedModels?: string[];
+  /**
+   * When true, throws `TenancyContextRequiredError` if a query is executed
+   * without a tenant context (unless the model is in `sharedModels` or
+   * `withoutTenant()` was used to explicitly bypass).
+   *
+   * Prevents accidental data exposure when RLS policies are misconfigured.
+   * @default false
+   */
+  failClosed?: boolean;
   /**
    * EXPERIMENTAL: Enable transparent interactive transaction support.
    * Relies on undocumented Prisma internals (__internalParams).
@@ -57,6 +67,7 @@ export function createPrismaTenancyExtension(
   const sharedModels = new Set(options?.sharedModels ?? []);
   const autoInject = options?.autoInjectTenantId ?? false;
   const tenantIdField = options?.tenantIdField ?? 'tenant_id';
+  const failClosedMode = options?.failClosed ?? false;
 
   return Prisma.defineExtension((prisma) => {
     // Prisma's defineExtension callback receives a Client type that
@@ -83,8 +94,15 @@ export function createPrismaTenancyExtension(
           }) {
             const tenantId = tenancyService.getCurrentTenant();
 
-            if (!tenantId || sharedModels.has(model)) {
+            if (sharedModels.has(model)) {
               return query(args);
+            }
+
+            if (!tenantId) {
+              if (tenancyService.isTenantBypassed() || !failClosedMode) {
+                return query(args);
+              }
+              throw new TenancyContextRequiredError(model, operation);
             }
 
             if (autoInject) {

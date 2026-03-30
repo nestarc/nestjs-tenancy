@@ -65,6 +65,38 @@ describe('TenancyContext', () => {
     });
   });
 
+  describe('isBypassed', () => {
+    it('should return false when no context is set', () => {
+      expect(context.isBypassed()).toBe(false);
+    });
+
+    it('should return false inside run()', (done) => {
+      context.run('tenant-abc', () => {
+        expect(context.isBypassed()).toBe(false);
+        done();
+      });
+    });
+
+    it('should return true inside runWithoutTenant()', async () => {
+      await context.runWithoutTenant(async () => {
+        expect(context.isBypassed()).toBe(true);
+      });
+    });
+
+    it('should return true inside runWithoutTenant() even when nested in run()', async () => {
+      await new Promise<void>((resolve) => {
+        context.run('tenant-abc', async () => {
+          await context.runWithoutTenant(async () => {
+            expect(context.isBypassed()).toBe(true);
+            expect(context.getTenantId()).toBeNull();
+          });
+          expect(context.isBypassed()).toBe(false);
+          resolve();
+        });
+      });
+    });
+  });
+
   describe('runWithoutTenant', () => {
     it('should return null tenant inside runWithoutTenant()', (done) => {
       context.run('tenant-abc', () => {

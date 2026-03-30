@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { TenancyContext } from '../services/tenancy-context';
+import { TenancyEventService } from '../events/tenancy-event.service';
+import { TenancyEvents } from '../events/tenancy-events';
 import { BYPASS_TENANCY_KEY } from '../tenancy.constants';
 
 @Injectable()
@@ -13,6 +15,7 @@ export class TenancyGuard implements CanActivate {
   constructor(
     private readonly context: TenancyContext,
     private readonly reflector: Reflector,
+    private readonly eventService: TenancyEventService,
   ) {}
 
   canActivate(executionContext: ExecutionContext): boolean {
@@ -25,6 +28,7 @@ export class TenancyGuard implements CanActivate {
       [executionContext.getHandler(), executionContext.getClass()],
     );
     if (isBypassed) {
+      this.eventService.emit(TenancyEvents.CONTEXT_BYPASSED, { reason: 'decorator' });
       return true;
     }
 

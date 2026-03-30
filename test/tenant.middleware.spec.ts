@@ -1,12 +1,21 @@
 import { BadRequestException } from '@nestjs/common';
 import { TenancyContext } from '../src/services/tenancy-context';
 import { TenantMiddleware } from '../src/middleware/tenant.middleware';
+import { TenancyEventService } from '../src/events/tenancy-event.service';
+import { TenancyEvents } from '../src/events/tenancy-events';
 import { HeaderTenantExtractor } from '../src/extractors/header.extractor';
 import { TenancyModuleOptions } from '../src/interfaces/tenancy-module-options.interface';
 
-function createMiddleware(overrides: Partial<TenancyModuleOptions> = {}): TenantMiddleware {
+function createMockEventService(): TenancyEventService & { emit: jest.Mock } {
+  return { emit: jest.fn(), onModuleInit: jest.fn() } as any;
+}
+
+function createMiddleware(
+  overrides: Partial<TenancyModuleOptions> = {},
+  eventService?: TenancyEventService,
+): TenantMiddleware {
   const options: TenancyModuleOptions = { tenantExtractor: 'x-tenant-id', ...overrides };
-  return new TenantMiddleware(options, new TenancyContext());
+  return new TenantMiddleware(options, new TenancyContext(), eventService ?? createMockEventService());
 }
 
 const mockReq = (headers: Record<string, string> = {}) => ({ headers }) as any;
@@ -192,6 +201,52 @@ describe('TenantMiddleware', () => {
       ).rejects.toThrow(BadRequestException);
 
       expect(onTenantResolved).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Events', () => {
+    it('should emit tenant.resolved on successful extraction', (done) => {
+      const eventService = createMockEventService();
+      const mw = createMiddleware({}, eventService);
+      const req = mockReq({ 'x-tenant-id': '550e8400-e29b-41d4-a716-446655440000' });
+
+      mw.use(req, mockRes(), () => {
+        expect(eventService.emit).toHaveBeenCalledWith(
+          TenancyEvents.RESOLVED,
+          expect.objectContaining({ tenantId: '550e8400-e29b-41d4-a716-446655440000', request: req }),
+        );
+        done();
+      });
+    });
+
+    it('should emit tenant.not_found when no tenant', (done) => {
+      const eventService = createMockEventService();
+      const mw = createMiddleware({}, eventService);
+      const req = mockReq();
+
+      mw.use(req, mockRes(), () => {
+        expect(eventService.emit).toHaveBeenCalledWith(
+          TenancyEvents.NOT_FOUND,
+          expect.objectContaining({ request: req }),
+        );
+        done();
+      });
+    });
+
+    it('should emit tenant.validation_failed on invalid ID', async () => {
+      const eventService = createMockEventService();
+      const mw = createMiddleware({}, eventService);
+
+      await expect(
+        new Promise((resolve, reject) => {
+          mw.use(mockReq({ 'x-tenant-id': 'invalid' }), mockRes(), resolve).catch(reject);
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(eventService.emit).toHaveBeenCalledWith(
+        TenancyEvents.VALIDATION_FAILED,
+        expect.objectContaining({ tenantId: 'invalid' }),
+      );
     });
   });
 });

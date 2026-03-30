@@ -17,6 +17,10 @@ export class TenancyService {
     return tenantId;
   }
 
+  isTenantBypassed(): boolean {
+    return this.context.isBypassed();
+  }
+
   async withoutTenant<T>(callback: () => T | Promise<T>): Promise<T> {
     return this.context.runWithoutTenant(callback);
   }

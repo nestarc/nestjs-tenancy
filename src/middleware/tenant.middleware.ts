@@ -8,6 +8,8 @@ import { Request, Response, NextFunction } from 'express';
 import { TenancyModuleOptions } from '../interfaces/tenancy-module-options.interface';
 import { TenantExtractor } from '../interfaces/tenant-extractor.interface';
 import { TenancyContext } from '../services/tenancy-context';
+import { TenancyEventService } from '../events/tenancy-event.service';
+import { TenancyEvents } from '../events/tenancy-events';
 import { HeaderTenantExtractor } from '../extractors/header.extractor';
 import { TENANCY_MODULE_OPTIONS, UUID_REGEX } from '../tenancy.constants';
 
@@ -20,6 +22,7 @@ export class TenantMiddleware implements NestMiddleware {
     @Inject(TENANCY_MODULE_OPTIONS)
     private readonly options: TenancyModuleOptions,
     private readonly context: TenancyContext,
+    private readonly eventService: TenancyEventService,
   ) {
     this.extractor =
       typeof options.tenantExtractor === 'string'
@@ -35,6 +38,7 @@ export class TenantMiddleware implements NestMiddleware {
 
     if (!tenantId) {
       const result = await this.options.onTenantNotFound?.(req, _res);
+      this.eventService.emit(TenancyEvents.NOT_FOUND, { request: req });
       if (result !== 'skip') {
         next();
       }
@@ -43,11 +47,13 @@ export class TenantMiddleware implements NestMiddleware {
 
     const isValid = await this.validate(tenantId);
     if (!isValid) {
+      this.eventService.emit(TenancyEvents.VALIDATION_FAILED, { tenantId, request: req });
       throw new BadRequestException('Invalid tenant ID format');
     }
 
     await this.context.run(tenantId, async () => {
       await this.options.onTenantResolved?.(tenantId, req);
+      this.eventService.emit(TenancyEvents.RESOLVED, { tenantId, request: req });
       next();
     });
   }

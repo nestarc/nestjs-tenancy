@@ -21,3 +21,12 @@ export type { PrismaTenancyExtensionOptions } from './prisma/prisma-tenancy.exte
 export { TENANCY_MODULE_OPTIONS } from './tenancy.constants';
 export { tenancyTransaction } from './prisma/tenancy-transaction';
 export type { TenancyTransactionOptions } from './prisma/tenancy-transaction';
+export { TenancyContextRequiredError } from './errors/tenancy-context-required.error';
+export { TenancyEventService } from './events/tenancy-event.service';
+export { TenancyEvents } from './events/tenancy-events';
+export type {
+  TenantResolvedEvent,
+  TenantNotFoundEvent,
+  TenantValidationFailedEvent,
+  TenantContextBypassedEvent,
+} from './events/tenancy-events';
