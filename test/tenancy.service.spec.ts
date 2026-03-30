@@ -1,13 +1,21 @@
 import { TenancyContext } from '../src/services/tenancy-context';
 import { TenancyService } from '../src/services/tenancy.service';
+import { TenancyEventService } from '../src/events/tenancy-event.service';
+import { TenancyEvents } from '../src/events/tenancy-events';
+
+function createMockEventService(): TenancyEventService & { emit: jest.Mock } {
+  return { emit: jest.fn(), onModuleInit: jest.fn() } as any;
+}
 
 describe('TenancyService', () => {
   let context: TenancyContext;
   let service: TenancyService;
+  let eventService: ReturnType<typeof createMockEventService>;
 
   beforeEach(() => {
     context = new TenancyContext();
-    service = new TenancyService(context);
+    eventService = createMockEventService();
+    service = new TenancyService(context, eventService);
   });
 
   describe('getCurrentTenant', () => {
@@ -92,6 +100,20 @@ describe('TenancyService', () => {
           throw new Error('service error');
         }),
       ).rejects.toThrow('service error');
+    });
+
+    it('should emit tenant.context_bypassed event with reason withoutTenant', async () => {
+      await service.withoutTenant(async () => {});
+      expect(eventService.emit).toHaveBeenCalledWith(
+        TenancyEvents.CONTEXT_BYPASSED,
+        { reason: 'withoutTenant' },
+      );
+    });
+
+    it('should work without eventService (optional injection)', async () => {
+      const serviceNoEvents = new TenancyService(context);
+      const result = await serviceNoEvents.withoutTenant(async () => 'ok');
+      expect(result).toBe('ok');
     });
   });
 });

@@ -1,6 +1,5 @@
 import { Client } from 'pg';
 import * as path from 'path';
-import * as fs from 'fs';
 import { TenancyContext } from '../../src/services/tenancy-context';
 import { TenancyService } from '../../src/services/tenancy.service';
 import { createPrismaTenancyExtension } from '../../src/prisma/prisma-tenancy.extension';
@@ -14,19 +13,15 @@ const ADMIN_URL =
 const APP_URL =
   process.env.APP_DATABASE_URL ?? 'postgresql://app_user:app_user@localhost:5433/tenancy_test';
 
-// Shared admin client used across all describe blocks
+// Shared admin client for cleanup within describe blocks
 let sharedAdminClient: Client;
 
 beforeAll(async () => {
   sharedAdminClient = new Client({ connectionString: ADMIN_URL });
   await sharedAdminClient.connect();
-  const setupSql = fs.readFileSync(path.join(__dirname, 'setup.sql'), 'utf-8');
-  await sharedAdminClient.query(setupSql);
 }, 30000);
 
 afterAll(async () => {
-  await sharedAdminClient.query('DROP TABLE IF EXISTS users CASCADE');
-  await sharedAdminClient.query('DROP TABLE IF EXISTS countries CASCADE');
   await sharedAdminClient.end();
 });
 

@@ -45,7 +45,7 @@ jobs:
       - run: npx prisma generate --schema=test/e2e/schema.prisma
         env:
           DATABASE_URL: postgresql://tenancy:tenancy@localhost:5433/tenancy_test
-      - run: npx jest --testPathPattern=e2e --runInBand
+      - run: npx jest --config test/e2e/jest.e2e.config.ts --runInBand
         env:
           DATABASE_URL: postgresql://tenancy:tenancy@localhost:5433/tenancy_test
           APP_DATABASE_URL: postgresql://app_user:app_user@localhost:5433/tenancy_test

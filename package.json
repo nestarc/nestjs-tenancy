@@ -33,7 +33,7 @@
     "test": "jest --testPathIgnorePatterns=e2e",
     "test:watch": "jest --watch --testPathIgnorePatterns=e2e",
     "test:cov": "jest --coverage --testPathIgnorePatterns=e2e",
-    "test:e2e": "docker compose up -d --wait && prisma generate --schema=test/e2e/schema.prisma && jest --testPathPattern=e2e --runInBand; EXIT=$?; docker compose down; exit $EXIT",
+    "test:e2e": "docker compose up -d --wait && prisma generate --schema=test/e2e/schema.prisma && jest --config test/e2e/jest.e2e.config.ts --runInBand; EXIT=$?; docker compose down; exit $EXIT",
     "lint": "tsc --noEmit && eslint src/ test/",
     "prepublishOnly": "npm run build"
   },

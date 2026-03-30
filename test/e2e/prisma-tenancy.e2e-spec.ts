@@ -1,15 +1,10 @@
 import { Client } from 'pg';
 import { TenancyContext } from '../../src/services/tenancy-context';
 import { TenancyService } from '../../src/services/tenancy.service';
-import * as fs from 'fs';
-import * as path from 'path';
 
 const TENANT_1 = '11111111-1111-1111-1111-111111111111';
 const TENANT_2 = '22222222-2222-2222-2222-222222222222';
 const TENANT_3 = '33333333-3333-3333-3333-333333333333';
-
-const ADMIN_URL =
-  process.env.DATABASE_URL ?? 'postgresql://tenancy:tenancy@localhost:5433/tenancy_test';
 
 // Non-superuser connection — RLS applies to this role
 const APP_URL =
@@ -18,33 +13,21 @@ const APP_URL =
 /**
  * E2E tests verifying PostgreSQL RLS with real database.
  *
+ * Setup/teardown handled by global-setup.ts / global-teardown.ts.
  * Key: RLS only applies to non-superuser roles. We use:
- * - `tenancy` (superuser) for setup/teardown
+ * - `tenancy` (superuser) for setup/teardown (global)
  * - `app_user` (non-superuser) for all RLS queries
  */
 describe('PostgreSQL RLS Integration', () => {
-  let adminClient: Client;
   let client: Client;
 
   beforeAll(async () => {
-    // Superuser: run setup SQL
-    adminClient = new Client({ connectionString: ADMIN_URL });
-    await adminClient.connect();
-
-    const setupSql = fs.readFileSync(
-      path.join(__dirname, 'setup.sql'),
-      'utf-8',
-    );
-    await adminClient.query(setupSql);
-
-    // Non-superuser: used for all RLS queries
     client = new Client({ connectionString: APP_URL });
     await client.connect();
   });
 
   afterAll(async () => {
     await client.end();
-    await adminClient.end();
   });
 
   it('should return only tenant 1 rows with SET LOCAL', async () => {
@@ -121,7 +104,6 @@ describe('PostgreSQL RLS Integration', () => {
 });
 
 describe('TenancyContext + RLS Integration', () => {
-  let adminClient: Client;
   let client: Client;
   let context: TenancyContext;
   let service: TenancyService;
@@ -129,15 +111,12 @@ describe('TenancyContext + RLS Integration', () => {
   beforeAll(async () => {
     client = new Client({ connectionString: APP_URL });
     await client.connect();
-    adminClient = new Client({ connectionString: ADMIN_URL });
-    await adminClient.connect();
     context = new TenancyContext();
     service = new TenancyService(context);
   });
 
   afterAll(async () => {
     await client.end();
-    await adminClient.end();
   });
 
   it('should use TenancyService tenant in SET LOCAL', async () => {

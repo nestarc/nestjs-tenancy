@@ -135,6 +135,46 @@ describe('createPrismaTenancyExtension', () => {
     });
   });
 
+  it('should pass correct key and tenantId to set_config via $executeRaw', async () => {
+    const { mockPrisma, mockTransaction, mockExecuteRaw } = buildMockPrisma();
+    const handler = getHandler(mockPrisma);
+
+    // Capture the $executeRaw tagged template call within $transaction
+    const capturedSetConfigArgs: any[] = [];
+    mockExecuteRaw.mockImplementation((...args: any[]) => {
+      capturedSetConfigArgs.push(args);
+      return Promise.resolve(1);
+    });
+    mockTransaction.mockImplementation(async (txArray: any[]) => {
+      // Evaluate the promises so $executeRaw gets called
+      const results = await Promise.all(txArray);
+      return results;
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      context.run('550e8400-e29b-41d4-a716-446655440000', async () => {
+        try {
+          await handler({
+            model: 'TestModel',
+            operation: 'findMany',
+            args: {},
+            query: jest.fn().mockResolvedValue([]),
+          });
+
+          // $executeRaw is called as tagged template: $executeRaw`SELECT set_config(${key}, ${id}, TRUE)`
+          // Tagged templates pass [strings[], ...values]
+          expect(capturedSetConfigArgs.length).toBeGreaterThanOrEqual(1);
+          const [strings, ...values] = capturedSetConfigArgs[0];
+          expect(strings.join('')).toContain('set_config');
+          expect(values).toContain('app.current_tenant');
+          expect(values).toContain('550e8400-e29b-41d4-a716-446655440000');
+
+          resolve();
+        } catch (e) { reject(e); }
+      });
+    });
+  });
+
   it('should use custom dbSettingKey', async () => {
     const { mockPrisma, mockTransaction } = buildMockPrisma();
 

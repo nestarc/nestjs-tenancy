@@ -32,3 +32,6 @@ lerna-debug.log*
 
 # Prisma generated client (E2E tests)
 test/e2e/generated
+
+# npm pack output
+*.tgz

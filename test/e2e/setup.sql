@@ -10,7 +10,7 @@ $$;
 
 GRANT CONNECT ON DATABASE tenancy_test TO app_user;
 
--- Create test table
+-- Create test tables (idempotent — safe to run multiple times)
 DROP TABLE IF EXISTS users CASCADE;
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
@@ -27,9 +27,14 @@ GRANT USAGE, SELECT ON SEQUENCE users_id_seq TO app_user;
 -- Enable RLS (applies to non-superuser roles)
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
--- Create isolation policy
+-- Create isolation policies (DROP IF EXISTS for idempotency)
+DROP POLICY IF EXISTS tenant_isolation ON users;
 CREATE POLICY tenant_isolation ON users
   USING (tenant_id = current_setting('app.current_tenant', true)::text);
+
+DROP POLICY IF EXISTS tenant_insert ON users;
+CREATE POLICY tenant_insert ON users
+  FOR INSERT WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::text);
 
 -- Seed test data
 INSERT INTO users (tenant_id, name, email) VALUES
@@ -53,7 +58,3 @@ GRANT USAGE, SELECT ON SEQUENCE countries_id_seq TO app_user;
 INSERT INTO countries (name, code) VALUES
   ('United States', 'US'),
   ('South Korea', 'KR');
-
--- Add INSERT policy for users table (needed for autoInjectTenantId E2E test)
-CREATE POLICY tenant_insert ON users
-  FOR INSERT WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::text);
