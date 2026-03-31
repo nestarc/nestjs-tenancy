@@ -141,6 +141,8 @@ createPrismaTenancyExtension(tenancyService, {
 | `autoInjectTenantId` | `boolean` | `false` | Auto-inject tenant ID into `create`, `createMany`, `createManyAndReturn`, `upsert` |
 | `tenantIdField` | `string` | `'tenant_id'` | Column name to inject tenant ID into |
 | `sharedModels` | `string[]` | `[]` | Models that bypass RLS (no `set_config`, no injection) |
+| `failClosed` | `boolean` | `false` | Block queries when no tenant context is set (prevents accidental data exposure if RLS is misconfigured) |
+| `experimentalTransactionSupport` | `boolean` | `false` | **Experimental.** Enable transparent `set_config` inside interactive transactions. Relies on undocumented Prisma internals — prefer `tenancyTransaction()` for production use |
 
 > **Important:** If you customize `dbSettingKey` in `TenancyModule.forRoot()`, pass the same value to `createPrismaTenancyExtension()` and `tenancyTransaction()`. These are independent configurations that must match your PostgreSQL `current_setting()` calls.
 
@@ -397,7 +399,7 @@ TenancyModule.forRoot({
 > export class AppModule {}
 > ```
 >
-> **Option 3 — Verify the JWT claim in `onTenantResolved`:**
+> **Option 2 — Verify the JWT claim in `onTenantResolved`:**
 >
 > If you need to ensure the resolved tenant matches the authenticated user, use the `onTenantResolved` hook. This does not replace signature verification but lets you add an authorization check after extraction:
 >
