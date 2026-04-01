@@ -21,7 +21,12 @@ export type { PrismaTenancyExtensionOptions } from './prisma/prisma-tenancy.exte
 export { TENANCY_MODULE_OPTIONS } from './tenancy.constants';
 export { tenancyTransaction } from './prisma/tenancy-transaction';
 export type { TenancyTransactionOptions } from './prisma/tenancy-transaction';
+export { TenantContextMissingError } from './errors/tenant-context-missing.error';
 export { TenancyContextRequiredError } from './errors/tenancy-context-required.error';
+export type { TenantPropagator } from './interfaces/tenant-propagator.interface';
+export { HttpTenantPropagator } from './propagation/http-tenant-propagator';
+export type { HttpPropagationOptions } from './propagation/http-tenant-propagator';
+export { propagateTenantHeaders } from './propagation/propagate-tenant-headers';
 export { TenancyEventService } from './events/tenancy-event.service';
 export { TenancyEvents } from './events/tenancy-events';
 export type {

@@ -2,6 +2,7 @@ import { TenancyContext } from '../src/services/tenancy-context';
 import { TenancyService } from '../src/services/tenancy.service';
 import { TenancyEventService } from '../src/events/tenancy-event.service';
 import { TenancyEvents } from '../src/events/tenancy-events';
+import { TenantContextMissingError } from '../src/errors/tenant-context-missing.error';
 
 function createMockEventService(): TenancyEventService & { emit: jest.Mock } {
   return { emit: jest.fn(), onModuleInit: jest.fn() } as any;
@@ -32,7 +33,8 @@ describe('TenancyService', () => {
   });
 
   describe('getCurrentTenantOrThrow', () => {
-    it('should throw when no tenant is set', () => {
+    it('should throw TenantContextMissingError when no tenant is set', () => {
+      expect(() => service.getCurrentTenantOrThrow()).toThrow(TenantContextMissingError);
       expect(() => service.getCurrentTenantOrThrow()).toThrow('No tenant context available');
     });
 

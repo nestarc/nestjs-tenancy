@@ -23,6 +23,8 @@ One line of code. Automatic tenant isolation.
 - **Fail-Closed mode** — `failClosed: true` blocks model queries without tenant context, preventing accidental data exposure
 - **Testing utilities** — `TestTenancyModule`, `withTenant()`, `expectTenantIsolation()` via `@nestarc/tenancy/testing`
 - **Event system** — optional `@nestjs/event-emitter` integration for `tenant.resolved`, `tenant.not_found`, etc.
+- **Microservice propagation** — `propagateTenantHeaders()` forwards tenant context to downstream services via any HTTP client
+- **Error hierarchy** — `TenantContextMissingError` base class enables unified `instanceof` catch handling
 - **CLI scaffolding** — `npx @nestarc/tenancy init` generates RLS policies and module config
 - **ccTLD-aware subdomain extraction** — accurate parsing for `.co.uk`, `.co.jp`, `.com.au`, etc.
 - **SQL injection safe** — `set_config()` with bind parameters, plus UUID validation by default
@@ -568,6 +570,75 @@ class TenantLogger {
 Events: `tenant.resolved`, `tenant.not_found`, `tenant.validation_failed`, `tenant.context_bypassed`.
 
 If `@nestjs/event-emitter` is not installed, events are silently skipped — no errors.
+
+## Microservice Propagation
+
+Forward the current tenant context to downstream services using `propagateTenantHeaders()`. Works with any HTTP client — zero dependencies.
+
+```typescript
+import { propagateTenantHeaders } from '@nestarc/tenancy';
+
+// With fetch
+const res = await fetch('http://orders-service/api/orders', {
+  headers: { 'Content-Type': 'application/json', ...propagateTenantHeaders() },
+});
+
+// With axios
+const res = await axios.get('http://orders-service/api/orders', {
+  headers: propagateTenantHeaders(),
+});
+
+// With @nestjs/axios HttpService
+this.httpService.get('http://orders-service/api/orders', {
+  headers: propagateTenantHeaders(),
+});
+```
+
+By default, the function uses `X-Tenant-Id` as the header name. Pass a custom name if needed:
+
+```typescript
+propagateTenantHeaders('X-Custom-Tenant'); // { 'X-Custom-Tenant': 'tenant-abc' }
+```
+
+Returns an empty object `{}` when no tenant context is available (e.g., outside a request or inside `withoutTenant()`).
+
+> **How it works:** `propagateTenantHeaders()` reads from the same static `AsyncLocalStorage` used by `TenancyContext`. No dependency injection required — it works anywhere in the call stack.
+
+For more control, use `HttpTenantPropagator` directly:
+
+```typescript
+import { HttpTenantPropagator, TenancyContext } from '@nestarc/tenancy';
+
+const propagator = new HttpTenantPropagator(tenancyContext, {
+  headerName: 'X-Tenant-Id',
+});
+const headers = propagator.getHeaders(); // { 'X-Tenant-Id': 'tenant-abc' }
+```
+
+## Error Hierarchy
+
+All tenancy context errors follow a class hierarchy for flexible catch handling:
+
+```
+Error
+  └── TenantContextMissingError          ← getCurrentTenantOrThrow()
+        └── TenancyContextRequiredError   ← Prisma fail-closed (has model, operation)
+```
+
+```typescript
+import { TenantContextMissingError, TenancyContextRequiredError } from '@nestarc/tenancy';
+
+try {
+  // any operation that requires tenant context
+} catch (e) {
+  if (e instanceof TenantContextMissingError) {
+    // Catches both service-level and Prisma-level errors
+  }
+  if (e instanceof TenancyContextRequiredError) {
+    // Catches only Prisma fail-closed errors (e.model, e.operation available)
+  }
+}
+```
 
 ## Security
 

@@ -1,4 +1,6 @@
-export class TenancyContextRequiredError extends Error {
+import { TenantContextMissingError } from './tenant-context-missing.error';
+
+export class TenancyContextRequiredError extends TenantContextMissingError {
   constructor(
     public readonly model: string,
     public readonly operation: string,

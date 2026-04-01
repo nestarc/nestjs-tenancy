@@ -1,6 +1,6 @@
 # @nestarc/tenancy Roadmap
 
-> v0.4.0 구현 완료 (2026-03-30). 이 문서는 다음 단계를 정리합니다.
+> v0.5.0 구현 완료 (2026-04-01). 이 문서는 다음 단계를 정리합니다.
 
 ---
 
@@ -114,21 +114,53 @@ Prisma 전용이라는 한계를 벗어나면 사용자 풀이 넓어진다.
 
 ---
 
-## Phase 4: 프로덕션 신뢰 (v1.0.0)
+## Phase 4: 마이크로서비스 기반 (v0.5.0) ✅ 완료
 
-### 4-1. 보안 강화
+### 4-0. 에러 타입 통일 (Breaking Change) ✅
+
+- `TenantContextMissingError` 기본 에러 클래스 추가
+- `TenancyContextRequiredError`가 이를 상속 → `instanceof` 통합 처리 가능
+- `getCurrentTenantOrThrow()` → `TenantContextMissingError` throw
+
+### 4-1. HTTP 테넌트 전파 ✅
+
+- `propagateTenantHeaders()` — 현재 테넌트를 HTTP 헤더로 반환하는 헬퍼 함수
+- `HttpTenantPropagator` — DI 기반 HTTP 전파 구현체
+- `TenantPropagator` — 전파 인터페이스 (v0.6.0 확장점)
+- 외부 의존성 제로 — fetch, axios, got, undici 모두 호환
+
+---
+
+## Phase 4.5: 비동기 전파 (v0.6.0)
+
+### 4.5-1. 메시지 큐 전파
+
+- **Bull Queue**: Job data에 테넌트 컨텍스트 자동 포함
+- **Kafka**: 메시지 헤더에 테넌트 ID 전파
+- **gRPC**: metadata에 테넌트 ID 전파
+
+### 4.5-2. 전파 자동화
+
+- NestJS Interceptor 기반 자동 전파 (opt-in)
+- 인바운드 전파: 메시지 수신 시 자동 테넌트 컨텍스트 복원
+
+---
+
+## Phase 5: 프로덕션 신뢰 (v1.0.0)
+
+### 5-1. 보안 강화
 
 - 커넥션 풀 격리 검증 (PgBouncer, Prisma Data Proxy 호환)
 - tenant_id 위조 방지 (JWT claim과 헤더 교차 검증)
 - 감사 로그 (누가, 어떤 tenant에, 언제 접근했는지)
 
-### 4-2. 운영 도구
+### 5-2. 운영 도구
 
 - Health check endpoint (`/tenancy/health`)
 - Tenant 목록 조회 API (관리자용)
 - Migration helper (기존 단일 테넌트 → 멀티 테넌트 전환)
 
-### 4-3. 문서 + 커뮤니티
+### 5-3. 문서 + 커뮤니티
 
 - 공식 문서 사이트 (예제 중심)
 - 프로덕션 사례 1~2개 확보
@@ -143,7 +175,9 @@ Prisma 전용이라는 한계를 벗어나면 사용자 풀이 넓어진다.
 ✅ v0.2.0 (완료)    다중 추출 전략 + Lifecycle Hooks + Prisma 고도화
 ✅ v0.3.0 (완료)    withoutTenant() + tenancyTransaction() + ccTLD + CLI
 ✅ v0.4.0 (완료)    Fail-Closed + Testing Utilities + Event System
-→ v1.0.0 (다음)    보안 강화 + 운영 도구 + 문서 사이트 + 다중 DB + ORM 어댑터
+✅ v0.5.0 (완료)    에러 통일 + HTTP 테넌트 전파
+→ v0.6.0 (다음)    비동기 전파 (Kafka, gRPC, Bull)
+→ v1.0.0           보안 강화 + 운영 도구 + 문서 사이트 + 다중 DB + ORM 어댑터
 ```
 
 **핵심 원칙**: 직접 구현하면 30분, 하지만 테스트 + 엣지 케이스 + 문서까지 하면 3일 걸리는 것들을 라이브러리가 해결해준다.

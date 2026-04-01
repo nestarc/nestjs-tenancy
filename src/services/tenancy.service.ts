@@ -2,6 +2,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import { TenancyContext } from './tenancy-context';
 import { TenancyEventService } from '../events/tenancy-event.service';
 import { TenancyEvents } from '../events/tenancy-events';
+import { TenantContextMissingError } from '../errors/tenant-context-missing.error';
 
 @Injectable()
 export class TenancyService {
@@ -17,7 +18,7 @@ export class TenancyService {
   getCurrentTenantOrThrow(): string {
     const tenantId = this.context.getTenantId();
     if (!tenantId) {
-      throw new Error('No tenant context available');
+      throw new TenantContextMissingError();
     }
     return tenantId;
   }

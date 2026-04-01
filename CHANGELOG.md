@@ -4,6 +4,59 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-04-01
+
+### Added
+
+- **HTTP tenant propagation** — `propagateTenantHeaders()` helper function returns the current tenant ID as an HTTP header object. Works with any HTTP client (fetch, axios, got, undici) without additional dependencies.
+- **`HttpTenantPropagator`** class — injectable propagator for HTTP-based tenant context forwarding between microservices
+- **`TenantPropagator`** interface — extensibility point for future transport propagation (Kafka, gRPC, Bull planned for v0.6.0)
+- **`TenantContextMissingError`** — new base error class for all tenancy context errors. Enables unified `instanceof` catch handling for both service-level and Prisma-level errors.
+- **`DEFAULT_PROPAGATION_HEADER`** constant (`'X-Tenant-Id'`)
+
+### Changed (Breaking)
+
+- **`getCurrentTenantOrThrow()`** now throws `TenantContextMissingError` instead of a generic `Error`. The error message is unchanged (`'No tenant context available'`), but `catch` blocks using `instanceof Error` will still work. Blocks using exact class checks need to update.
+- **`TenancyContextRequiredError`** now extends `TenantContextMissingError` instead of `Error`. This enables a clean error hierarchy where `instanceof TenantContextMissingError` catches both service-level and Prisma fail-closed errors.
+
+### Migration Guide
+
+**Error handling (breaking):**
+
+```typescript
+// Before (v0.4.0) — generic Error, no way to distinguish
+try {
+  tenancyService.getCurrentTenantOrThrow();
+} catch (e) {
+  if (e instanceof Error) { /* catches everything */ }
+}
+
+// After (v0.5.0) — typed errors with hierarchy
+import { TenantContextMissingError, TenancyContextRequiredError } from '@nestarc/tenancy';
+
+try {
+  tenancyService.getCurrentTenantOrThrow();
+} catch (e) {
+  if (e instanceof TenantContextMissingError) {
+    // Catches both service-level and Prisma fail-closed errors
+  }
+  if (e instanceof TenancyContextRequiredError) {
+    // Catches only Prisma fail-closed errors (has model, operation)
+  }
+}
+```
+
+**Tenant propagation (new, opt-in):**
+
+```typescript
+import { propagateTenantHeaders } from '@nestarc/tenancy';
+
+// In any service method running inside a tenant context:
+const res = await fetch('http://orders-service/api/orders', {
+  headers: { ...propagateTenantHeaders() },
+});
+```
+
 ## [0.4.0] - 2026-03-30
 
 ### Added

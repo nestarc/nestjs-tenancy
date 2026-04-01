@@ -1,4 +1,5 @@
 import { TenancyContextRequiredError } from '../src/errors/tenancy-context-required.error';
+import { TenantContextMissingError } from '../src/errors/tenant-context-missing.error';
 
 describe('TenancyContextRequiredError', () => {
   it('should have correct name', () => {
@@ -23,5 +24,10 @@ describe('TenancyContextRequiredError', () => {
   it('should be an instance of Error', () => {
     const error = new TenancyContextRequiredError('User', 'findMany');
     expect(error).toBeInstanceOf(Error);
+  });
+
+  it('should be an instance of TenantContextMissingError', () => {
+    const error = new TenancyContextRequiredError('User', 'findMany');
+    expect(error).toBeInstanceOf(TenantContextMissingError);
   });
 });
