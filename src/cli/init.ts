@@ -8,8 +8,14 @@ interface InitOptions {
   cwd?: string;
 }
 
+// prompts package is dynamically required and returns mixed types per question
+// (string for text/select, boolean for confirm, number for number).
+// Typing this precisely requires duplicating the full prompts API; any is acceptable
+// at this external boundary.
+type PromptsFn = (...args: any[]) => Promise<any>;
+
 export async function runInit(options?: InitOptions): Promise<void> {
-  let prompts: any;
+  let prompts: PromptsFn;
   try {
      
     prompts = require('prompts');
@@ -120,7 +126,7 @@ export async function runInit(options?: InitOptions): Promise<void> {
   console.log('4. Copy the module setup into your AppModule');
 }
 
-async function writeFileWithConfirm(prompts: any, filePath: string, content: string): Promise<void> {
+async function writeFileWithConfirm(prompts: PromptsFn, filePath: string, content: string): Promise<void> {
   if (fs.existsSync(filePath)) {
     const { overwrite } = await prompts({
       type: 'confirm',

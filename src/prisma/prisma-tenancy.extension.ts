@@ -115,7 +115,7 @@ export function createPrismaTenancyExtension(
                   if (Array.isArray(args.data)) {
                     args = {
                       ...args,
-                      data: args.data.map((d: any) => ({ ...d, [tenantIdField]: tenantId })),
+                      data: args.data.map((d: Record<string, unknown>) => ({ ...d, [tenantIdField]: tenantId })),
                     };
                   } else if (args.data && typeof args.data === 'object') {
                     args = { ...args, data: { ...args.data, [tenantIdField]: tenantId } };

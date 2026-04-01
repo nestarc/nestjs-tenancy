@@ -23,7 +23,7 @@ export interface IsolationTestOptions {
  * @throws Error if tenant isolation is violated
  */
 export async function expectTenantIsolation(
-  prismaModel: { findMany: (args?: any) => Promise<any[]> },
+  prismaModel: { findMany: (args?: Record<string, unknown>) => Promise<Record<string, unknown>[]> },
   tenantA: string,
   tenantB: string,
   options?: IsolationTestOptions,
@@ -36,18 +36,18 @@ export async function expectTenantIsolation(
   ]);
 
   // Verify all rows belong to the querying tenant (catches third-party leaks too)
-  const foreignInA = rowsA.filter((r: any) => r[field] !== tenantA);
-  const foreignInB = rowsB.filter((r: any) => r[field] !== tenantB);
+  const foreignInA = rowsA.filter((r: Record<string, unknown>) => r[field] !== tenantA);
+  const foreignInB = rowsB.filter((r: Record<string, unknown>) => r[field] !== tenantB);
 
   if (foreignInA.length > 0) {
-    const foreignIds = [...new Set(foreignInA.map((r: any) => r[field]))];
+    const foreignIds = [...new Set(foreignInA.map((r: Record<string, unknown>) => r[field]))];
     throw new Error(
       `Tenant isolation violation: tenant ${tenantA} query returned ` +
       `${foreignInA.length} row(s) belonging to other tenant(s): ${foreignIds.join(', ')}`,
     );
   }
   if (foreignInB.length > 0) {
-    const foreignIds = [...new Set(foreignInB.map((r: any) => r[field]))];
+    const foreignIds = [...new Set(foreignInB.map((r: Record<string, unknown>) => r[field]))];
     throw new Error(
       `Tenant isolation violation: tenant ${tenantB} query returned ` +
       `${foreignInB.length} row(s) belonging to other tenant(s): ${foreignIds.join(', ')}`,
