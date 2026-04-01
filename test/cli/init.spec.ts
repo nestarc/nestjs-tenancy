@@ -222,7 +222,7 @@ describe('CLI init', () => {
     const modulePath = path.join(tmpDir, 'tenancy.module-setup.ts');
     expect(fs.existsSync(modulePath)).toBe(true);
     const content = fs.readFileSync(modulePath, 'utf-8');
-    expect(content).toContain("validateTenantId: (id) => /^[a-z0-9-]+$/.test(id),");
+    expect(content).toContain("validateTenantId: (id) => new RegExp('^[a-z0-9-]+$').test(id),");
   });
 
   it('should return early when user cancels (no extractor in response)', async () => {

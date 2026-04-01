@@ -1,6 +1,7 @@
 export interface ParsedModel {
   modelName: string;
   tableName: string;
+  schemaName?: string;
 }
 
 /**
@@ -17,7 +18,9 @@ export function parseModels(schemaContent: string): ParsedModel[] {
     const body = match[2];
     const mapMatch = body.match(/@@map\("([^"]+)"\)/);
     const tableName = mapMatch ? mapMatch[1] : modelName;
-    models.push({ modelName, tableName });
+    const schemaMatch = body.match(/@@schema\("([^"]+)"\)/);
+    const schemaName = schemaMatch ? schemaMatch[1] : undefined;
+    models.push({ modelName, tableName, schemaName });
   }
 
   return models;

@@ -34,6 +34,7 @@ describe('generateSetupSql', () => {
     };
     const sql = generateSetupSql(options);
     expect(sql).toContain('ALTER TABLE "User" ENABLE ROW LEVEL SECURITY;');
+    expect(sql).toContain('ALTER TABLE "User" FORCE ROW LEVEL SECURITY;');
     expect(sql).toContain('CREATE POLICY tenant_isolation_User ON "User"');
     expect(sql).toContain("current_setting('app.current_tenant', true)::text");
     expect(sql).toContain('CREATE POLICY tenant_insert_User ON "User"');
@@ -57,6 +58,7 @@ describe('generateSetupSql', () => {
     };
     const sql = generateSetupSql(options);
     expect(sql).toContain('ALTER TABLE "users" ENABLE ROW LEVEL SECURITY;');
+    expect(sql).toContain('ALTER TABLE "users" FORCE ROW LEVEL SECURITY;');
     expect(sql).toContain('CREATE POLICY tenant_isolation_users ON "users"');
     expect(sql).not.toContain('"User"');
   });
@@ -112,6 +114,7 @@ describe('generateSetupSql', () => {
     };
     const sql = generateSetupSql(options);
     expect(sql).toContain('ALTER TABLE "audit-logs" ENABLE ROW LEVEL SECURITY;');
+    expect(sql).toContain('ALTER TABLE "audit-logs" FORCE ROW LEVEL SECURITY;');
     expect(sql).toContain('CREATE POLICY tenant_isolation_audit_logs ON "audit-logs"');
     expect(sql).toContain('CREATE POLICY tenant_insert_audit_logs ON "audit-logs"');
     expect(sql).not.toContain('tenant_isolation_audit-logs');
@@ -206,6 +209,15 @@ describe('generateModuleSetup', () => {
     expect(result).toContain("dbSettingKey: 'app.tenant',");
   });
 
+  it('should include extension options block when only dbSettingKey is custom', () => {
+    const result = generateModuleSetup({
+      ...baseOptions,
+      dbSettingKey: 'app.tenant',
+    });
+    expect(result).toContain('createPrismaTenancyExtension(tenancyService, {');
+    expect(result).toContain("dbSettingKey: 'app.tenant',");
+  });
+
   it('should always include Prisma extension block', () => {
     const result = generateModuleSetup(baseOptions);
     expect(result).toContain('createPrismaTenancyExtension(tenancyService)');
@@ -245,7 +257,25 @@ describe('generateModuleSetup', () => {
       tenantFormat: 'Custom',
       customRegex: '^[a-z0-9-]+$',
     });
-    expect(result).toContain("validateTenantId: (id) => /^[a-z0-9-]+$/.test(id),");
+    expect(result).toContain("validateTenantId: (id) => new RegExp('^[a-z0-9-]+$').test(id),");
+  });
+
+  it('should safely handle customRegex containing forward slashes', () => {
+    const result = generateModuleSetup({
+      ...baseOptions,
+      tenantFormat: 'Custom',
+      customRegex: '^acme/.+$',
+    });
+    expect(result).toContain("validateTenantId: (id) => new RegExp('^acme/.+$').test(id),");
+  });
+
+  it('should escape backslashes in customRegex for string context', () => {
+    const result = generateModuleSetup({
+      ...baseOptions,
+      tenantFormat: 'Custom',
+      customRegex: '^\\d{3}-\\d{4}$',
+    });
+    expect(result).toContain("validateTenantId: (id) => new RegExp('^\\\\d{3}-\\\\d{4}$').test(id),");
   });
 
   it('should NOT include validateTenantId when tenantFormat is UUID', () => {

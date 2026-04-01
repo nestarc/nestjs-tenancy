@@ -67,8 +67,9 @@ Every table that needs tenant isolation must have a `tenant_id` column and an RL
 -- Ensure your table has a tenant_id column
 ALTER TABLE users ADD COLUMN tenant_id TEXT NOT NULL;
 
--- Enable RLS
+-- Enable RLS (FORCE ensures table owners also obey policies)
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE users FORCE ROW LEVEL SECURITY;
 
 -- Create isolation policy
 CREATE POLICY tenant_isolation ON users
@@ -79,7 +80,7 @@ CREATE POLICY tenant_isolation ON users
 -- Repeat for each tenant-scoped table
 ```
 
-> **Critical:** RLS only applies to non-superuser roles. Create a dedicated application role:
+> **Critical:** RLS is bypassed by superusers and (without `FORCE ROW LEVEL SECURITY`) by table owners. Create a dedicated application role that does **not** own the tables:
 > ```sql
 > CREATE ROLE app_user LOGIN PASSWORD 'your_password';
 > GRANT USAGE ON SCHEMA public TO app_user;

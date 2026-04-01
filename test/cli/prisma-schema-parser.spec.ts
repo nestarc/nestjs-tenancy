@@ -63,6 +63,31 @@ model User {
     ]);
   });
 
+  it('should parse @@schema directive', () => {
+    const schema = `
+model Tenant {
+  id    Int    @id
+
+  @@schema("auth")
+  @@map("tenants")
+}
+`;
+    const models = parseModels(schema);
+    expect(models).toEqual([
+      { modelName: 'Tenant', tableName: 'tenants', schemaName: 'auth' },
+    ]);
+  });
+
+  it('should return undefined schemaName when @@schema is absent', () => {
+    const schema = `
+model User {
+  id    Int    @id
+}
+`;
+    const models = parseModels(schema);
+    expect(models[0].schemaName).toBeUndefined();
+  });
+
   it('should return empty array for empty schema', () => {
     expect(parseModels('')).toEqual([]);
   });

@@ -46,6 +46,7 @@ export function generateSetupSql(options: SetupSqlOptions): string {
     const safeName = model.tableName.replace(/[^a-zA-Z0-9_]/g, '_');
     lines.push(`-- ${model.modelName}`);
     lines.push(`ALTER TABLE "${model.tableName}" ENABLE ROW LEVEL SECURITY;`);
+    lines.push(`ALTER TABLE "${model.tableName}" FORCE ROW LEVEL SECURITY;`);
     lines.push(
       `CREATE POLICY tenant_isolation_${safeName} ON "${model.tableName}"`,
     );

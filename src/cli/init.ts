@@ -28,6 +28,14 @@ export async function runInit(options?: InitOptions): Promise<void> {
     const schemaContent = fs.readFileSync(schemaPath, 'utf-8');
     models = parseModels(schemaContent);
     console.log(`Found ${models.length} model(s) in ${path.relative(cwd, schemaPath) || 'schema.prisma'}`);
+    const multiSchemaModels = models.filter((m) => m.schemaName);
+    if (multiSchemaModels.length > 0) {
+      console.warn(
+        `\nWARNING: ${multiSchemaModels.length} model(s) use @@schema(): ${multiSchemaModels.map((m) => m.modelName).join(', ')}.\n` +
+        'The generated SQL uses unqualified table names and may target the wrong schema.\n' +
+        'Please review and add schema qualification (e.g., "myschema"."table") manually.\n',
+      );
+    }
   } else {
     console.log('No schema.prisma found.');
   }
