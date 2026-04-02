@@ -1,6 +1,6 @@
 # @nestarc/tenancy Roadmap
 
-> v0.5.0 구현 완료 (2026-04-01). 이 문서는 다음 단계를 정리합니다.
+> v0.6.0 구현 완료 (2026-04-02). 이 문서는 다음 단계를 정리합니다.
 
 ---
 
@@ -131,18 +131,27 @@ Prisma 전용이라는 한계를 벗어나면 사용자 풀이 넓어진다.
 
 ---
 
-## Phase 4.5: 비동기 전파 (v0.6.0)
+## Phase 4.5: 비동기 전파 (v0.6.0) ✅ 완료
 
-### 4.5-1. 메시지 큐 전파
+### 4.5-1. 메시지 큐 전파 ✅
 
-- **Bull Queue**: Job data에 테넌트 컨텍스트 자동 포함
-- **Kafka**: 메시지 헤더에 테넌트 ID 전파
-- **gRPC**: metadata에 테넌트 ID 전파
+- **Bull Queue**: `BullTenantPropagator` — Job data에 테넌트 컨텍스트 자동 포함 ✅
+- **Kafka**: `KafkaTenantPropagator` — 메시지 헤더에 테넌트 ID 전파 (string/Buffer 지원) ✅
+- **gRPC**: `GrpcTenantPropagator` — metadata에 테넌트 ID 전파 ✅
+- **`TenantContextCarrier<T>`** 인터페이스 — OpenTelemetry inject/extract 패턴 ✅
 
-### 4.5-2. 전파 자동화
+### 4.5-2. 전파 자동화 ✅
 
-- NestJS Interceptor 기반 자동 전파 (opt-in)
-- 인바운드 전파: 메시지 수신 시 자동 테넌트 컨텍스트 복원
+- `TenantContextInterceptor` — 마이크로서비스 인바운드 자동 복원 (Kafka, Bull, gRPC) ✅
+- 명시적 `transport` 옵션으로 duck-typing 오탐 방지 ✅
+- HTTP는 skip (TenantMiddleware가 담당) ✅
+
+### 4.5-3. 안정화 및 CLI 강화 ✅
+
+- `interactiveTransactionSupport` — experimental에서 stable로 승격 ✅
+- CLI `check` — FORCE/POLICY/key 포함 deep validation ✅
+- CLI `--dry-run` — 파일 미생성 미리보기 ✅
+- `@@schema` 다중 스키마 — schema-qualified SQL 생성 ✅
 
 ---
 

@@ -1,5 +1,6 @@
 export { TenancyModule } from './tenancy.module';
 export { TenancyService } from './services/tenancy.service';
+export { TenancyContext } from './services/tenancy-context';
 export {
   TenancyModuleOptions,
   TenancyModuleAsyncOptions,
@@ -24,9 +25,18 @@ export type { TenancyTransactionOptions } from './prisma/tenancy-transaction';
 export { TenantContextMissingError } from './errors/tenant-context-missing.error';
 export { TenancyContextRequiredError } from './errors/tenancy-context-required.error';
 export type { TenantPropagator } from './interfaces/tenant-propagator.interface';
+export type { TenantContextCarrier } from './interfaces/tenant-context-carrier.interface';
 export { HttpTenantPropagator } from './propagation/http-tenant-propagator';
 export type { HttpPropagationOptions } from './propagation/http-tenant-propagator';
 export { propagateTenantHeaders } from './propagation/propagate-tenant-headers';
+export { BullTenantPropagator } from './propagation/bull-tenant-propagator';
+export type { BullPropagationOptions } from './propagation/bull-tenant-propagator';
+export { KafkaTenantPropagator } from './propagation/kafka-tenant-propagator';
+export type { KafkaPropagationOptions, KafkaMessageLike } from './propagation/kafka-tenant-propagator';
+export { GrpcTenantPropagator } from './propagation/grpc-tenant-propagator';
+export type { GrpcPropagationOptions, GrpcMetadataLike } from './propagation/grpc-tenant-propagator';
+export { TenantContextInterceptor } from './propagation/tenant-context.interceptor';
+export type { TenantContextInterceptorOptions } from './propagation/tenant-context.interceptor';
 export { TenancyEventService } from './events/tenancy-event.service';
 export { TenancyEvents } from './events/tenancy-events';
 export type {

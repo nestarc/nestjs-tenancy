@@ -4,6 +4,57 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] - 2026-04-02
+
+### Added
+
+- **Bull tenant propagator** — `BullTenantPropagator` implements `TenantContextCarrier<Record<string, unknown>>` for injecting/extracting tenant context from BullMQ job data. Uses a configurable data key (default: `__tenantId`). Zero runtime dependency on `bullmq`.
+- **Kafka tenant propagator** — `KafkaTenantPropagator` implements both `TenantContextCarrier<KafkaMessageLike>` and `TenantPropagator`. Handles Kafka headers that may be `string` or `Buffer`. Zero runtime dependency on `kafkajs`.
+- **gRPC tenant propagator** — `GrpcTenantPropagator` implements `TenantContextCarrier<GrpcMetadataLike>`. Uses lowercase metadata keys per gRPC convention. Zero runtime dependency on `@grpc/grpc-js`.
+- **`TenantContextCarrier<T>` interface** — transport-agnostic contract for propagating tenant context, following the OpenTelemetry inject/extract pattern. Complements the existing `TenantPropagator` interface (which remains unchanged).
+- **`TenantContextInterceptor`** — NestJS interceptor that automatically restores tenant context from incoming microservice messages (Kafka, Bull, gRPC). HTTP is skipped (handled by `TenantMiddleware`). Supports explicit `transport` option to avoid duck-typing ambiguity. Properly propagates Observable teardown for streaming/long-lived handlers.
+- **CLI `check` command** — `npx @nestarc/tenancy check` compares `tenancy-setup.sql` against the Prisma schema to detect drift (missing or extra RLS policies). Exits with code 0 (in sync) or 1 (drift detected).
+- **CLI `--dry-run` flag** — `npx @nestarc/tenancy init --dry-run` previews generated SQL and module code without writing files.
+- **Multi-schema CLI support** — `@@schema("name")` directives are now fully supported. Generated SQL uses schema-qualified table names (e.g., `"auth"."users"`) and includes `GRANT USAGE ON SCHEMA` for each non-public schema.
+
+### Changed
+
+- **`TenancyContext`** is now exported from the root package entrypoint, enabling direct construction for propagator and interceptor usage.
+- **`interactiveTransactionSupport`** — new stable option replacing `experimentalTransactionSupport`. Validates Prisma internal API availability at extension creation time (startup-time error instead of runtime failure).
+- **`experimentalTransactionSupport`** is now deprecated. A console warning is emitted when used. **Backwards-compatible**: preserves the original fallback-to-batch behavior when Prisma internals are unavailable (no startup throw). Will be removed in v1.0.
+- **CLI `check` deep validation** — now verifies `FORCE ROW LEVEL SECURITY`, isolation/insert policy presence, and `current_setting()` key consistency in addition to table coverage.
+- **@@schema CLI message** — changed from a warning about manual adjustment to an informational message, since schema-qualified SQL is now generated automatically.
+- **SQL schema grants** — `GRANT USAGE ON SCHEMA` now always quotes the schema name (e.g., `"public"`) for consistency with schema-qualified table names.
+
+### Migration Guide
+
+**Interactive transaction support (non-breaking):**
+
+```typescript
+// Before (v0.5.x) — experimental flag
+createPrismaTenancyExtension(tenancyService, {
+  experimentalTransactionSupport: true, // still works, deprecated warning
+});
+
+// After (v0.6.0) — stable flag
+createPrismaTenancyExtension(tenancyService, {
+  interactiveTransactionSupport: true, // recommended
+});
+```
+
+**Microservice propagation (new):**
+
+```typescript
+// Producer: inject tenant into Bull job
+const propagator = new BullTenantPropagator(new TenancyContext());
+await queue.add('process', propagator.inject({ orderId: '123' }));
+
+// Consumer: auto-restore tenant via interceptor
+app.useGlobalInterceptors(
+  new TenantContextInterceptor(new TenancyContext()),
+);
+```
+
 ## [0.5.1] - 2026-04-01
 
 ### Fixed
@@ -11,7 +62,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 - **FORCE ROW LEVEL SECURITY** — CLI-generated SQL now includes `ALTER TABLE ... FORCE ROW LEVEL SECURITY` in addition to `ENABLE`. Without `FORCE`, table owners bypass RLS silently. README Quick Start updated with the same fix and an expanded warning about table ownership.
 - **dbSettingKey CLI emission** — CLI `module-setup.ts` now always emits `dbSettingKey` into the Prisma extension options block when it differs from the default, even if `autoInjectTenantId` and `sharedModels` are not set.
 - **Custom regex slash injection** — CLI scaffold now uses `new RegExp('...')` instead of `/.../` literal for `validateTenantId`, preventing syntax errors when user-provided regex contains `/`.
-- **@@schema detection** — Prisma schema parser now detects `@@schema(...)` directives and emits a warning during `npx @nestarc/tenancy init` for multi-schema projects. Full schema-qualified SQL generation is planned for a future release.
+- **@@schema detection** — Prisma schema parser now detects `@@schema(...)` directives and emits a warning during `npx @nestarc/tenancy init` for multi-schema projects. Full schema-qualified SQL generation added in v0.6.0.
 - **Express types peer dependency** — Added `@types/express` as an optional peer dependency. Public interfaces (`TenantExtractor`, `TenancyModuleOptions`, event types) import Express `Request`/`Response`, which could cause type resolution failures for consumers without Express types installed.
 - **Internal `any` cleanup** — Replaced 6 `any` usages in internal logic (`expect-tenant-isolation.ts`, `prisma-tenancy.extension.ts`) with `Record<string, unknown>`. Remaining `any` usages are at external system boundaries (Prisma `defineExtension`, NestJS `DynamicModule`, optional `@nestjs/event-emitter`).
 - **Handover doc safety** — Replaced `$executeRawUnsafe` string interpolation example in `docs/handover.md` with safe `$executeRaw` tagged template pattern matching shipping code.

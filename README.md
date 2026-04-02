@@ -23,9 +23,12 @@ One line of code. Automatic tenant isolation.
 - **Fail-Closed mode** — `failClosed: true` blocks model queries without tenant context, preventing accidental data exposure
 - **Testing utilities** — `TestTenancyModule`, `withTenant()`, `expectTenantIsolation()` via `@nestarc/tenancy/testing`
 - **Event system** — optional `@nestjs/event-emitter` integration for `tenant.resolved`, `tenant.not_found`, etc.
-- **Microservice propagation** — `propagateTenantHeaders()` forwards tenant context to downstream services via any HTTP client
+- **Microservice propagation** — HTTP (`propagateTenantHeaders()`), Bull, Kafka, gRPC propagators with zero transport dependencies
+- **Inbound context restoration** — `TenantContextInterceptor` auto-restores tenant context from incoming microservice messages
 - **Error hierarchy** — `TenantContextMissingError` base class enables unified `instanceof` catch handling
 - **CLI scaffolding** — `npx @nestarc/tenancy init` generates RLS policies and module config
+- **CLI drift detection** — `npx @nestarc/tenancy check` validates SQL against Prisma schema
+- **Multi-schema support** — `@@schema()` directives generate schema-qualified SQL (e.g., `"auth"."users"`)
 - **ccTLD-aware subdomain extraction** — accurate parsing for `.co.uk`, `.co.jp`, `.com.au`, etc.
 - **SQL injection safe** — `set_config()` with bind parameters, plus UUID validation by default
 - **NestJS 10 & 11** compatible, **Prisma 5 & 6** compatible
@@ -145,7 +148,8 @@ createPrismaTenancyExtension(tenancyService, {
 | `tenantIdField` | `string` | `'tenant_id'` | Column name to inject tenant ID into |
 | `sharedModels` | `string[]` | `[]` | Models that bypass RLS (no `set_config`, no injection) |
 | `failClosed` | `boolean` | `false` | Block queries when no tenant context is set (prevents accidental data exposure if RLS is misconfigured) |
-| `experimentalTransactionSupport` | `boolean` | `false` | **Experimental.** Enable transparent `set_config` inside interactive transactions. Relies on undocumented Prisma internals — prefer `tenancyTransaction()` for production use |
+| `interactiveTransactionSupport` | `boolean` | `false` | Enable transparent `set_config` inside interactive transactions. Validates Prisma compatibility at startup — throws immediately if unsupported. Alternative: `tenancyTransaction()` helper |
+| `experimentalTransactionSupport` | `boolean` | `false` | **Deprecated** — use `interactiveTransactionSupport`. Preserves fallback-to-batch behavior when Prisma internals are unavailable. Will be removed in v1.0 |
 
 > **Important:** If you customize `dbSettingKey` in `TenancyModule.forRoot()`, pass the same value to `createPrismaTenancyExtension()` and `tenancyTransaction()`. These are independent configurations that must match your PostgreSQL `current_setting()` calls.
 
@@ -153,7 +157,11 @@ createPrismaTenancyExtension(tenancyService, {
 
 ### Interactive Transactions
 
-The default Prisma extension wraps queries in batch transactions, which breaks inside `$transaction(async (tx) => ...)`. Use the `tenancyTransaction()` helper:
+The default Prisma extension wraps queries in batch transactions, which breaks inside `$transaction(async (tx) => ...)`. Two approaches are available:
+
+**Option 1: `tenancyTransaction()` helper (recommended)**
+
+Uses only public Prisma APIs. Works with all Prisma versions.
 
 ```typescript
 import { tenancyTransaction } from '@nestarc/tenancy';
@@ -164,17 +172,19 @@ await tenancyTransaction(prisma, tenancyService, async (tx) => {
 });
 ```
 
-**Experimental: Transparent Mode**
+**Option 2: Transparent mode**
+
+Sets RLS context automatically inside interactive transactions. Validates Prisma compatibility at startup.
 
 ```typescript
 const prisma = basePrisma.$extends(
   createPrismaTenancyExtension(tenancyService, {
-    experimentalTransactionSupport: true, // opt-in
+    interactiveTransactionSupport: true,
   })
 );
 ```
 
-> ⚠️ `experimentalTransactionSupport` relies on undocumented Prisma internals. It may break on Prisma upgrades. Use `tenancyTransaction()` for production-critical code.
+> `interactiveTransactionSupport` relies on Prisma internal APIs. If your Prisma version is incompatible, extension creation throws immediately with a clear error message. Use `tenancyTransaction()` as a fallback.
 
 ### 4. Use it
 
@@ -610,11 +620,86 @@ For more control, use `HttpTenantPropagator` directly:
 ```typescript
 import { HttpTenantPropagator, TenancyContext } from '@nestarc/tenancy';
 
-const propagator = new HttpTenantPropagator(tenancyContext, {
+const propagator = new HttpTenantPropagator(new TenancyContext(), {
   headerName: 'X-Tenant-Id',
 });
 const headers = propagator.getHeaders(); // { 'X-Tenant-Id': 'tenant-abc' }
 ```
+
+### Message Queue & RPC Propagation
+
+Transport-specific propagators for Bull, Kafka, and gRPC. All use structural typing with zero runtime dependencies on transport packages.
+
+#### Bull (BullMQ)
+
+```typescript
+import { BullTenantPropagator, TenancyContext } from '@nestarc/tenancy';
+
+const propagator = new BullTenantPropagator(new TenancyContext());
+
+// Producer: inject tenant into job data
+await queue.add('process-order', propagator.inject({ orderId: '123' }));
+// → { orderId: '123', __tenantId: 'tenant-abc' }
+
+// Consumer: extract tenant from job data
+const tenantId = propagator.extract(job.data); // 'tenant-abc'
+```
+
+#### Kafka
+
+```typescript
+import { KafkaTenantPropagator, TenancyContext } from '@nestarc/tenancy';
+
+const propagator = new KafkaTenantPropagator(new TenancyContext());
+
+// Producer: inject tenant into message headers
+await producer.send({
+  topic: 'orders',
+  messages: [propagator.inject({ value: JSON.stringify(payload) })],
+});
+
+// Consumer: extract tenant from message
+const tenantId = propagator.extract(message); // handles string & Buffer headers
+```
+
+#### gRPC
+
+```typescript
+import { GrpcTenantPropagator, TenancyContext } from '@nestarc/tenancy';
+
+const propagator = new GrpcTenantPropagator(new TenancyContext());
+
+// Client: inject tenant into metadata
+const metadata = new Metadata();
+propagator.inject(metadata); // sets 'x-tenant-id' key
+
+// Server: extract tenant from metadata
+const tenantId = propagator.extract(call.metadata);
+```
+
+### Inbound Context Restoration (Interceptor)
+
+`TenantContextInterceptor` automatically restores tenant context from incoming microservice messages. It wraps handler execution in `TenancyContext.run()`.
+
+```typescript
+import { TenantContextInterceptor, TenancyContext } from '@nestarc/tenancy';
+
+// Recommended: specify transport explicitly to avoid duck-typing ambiguity
+app.useGlobalInterceptors(
+  new TenantContextInterceptor(new TenancyContext(), { transport: 'kafka' }),
+);
+```
+
+Supported transports: `'kafka'` | `'bull'` | `'grpc'`.
+
+> **HTTP is skipped** — `TenantMiddleware` + `TenancyGuard` already handle HTTP tenant extraction. The interceptor is designed for RPC transports only.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `transport` | `'kafka' \| 'bull' \| 'grpc'` | auto-detect | Explicit transport selection (recommended) |
+| `kafkaHeaderName` | `string` | `'X-Tenant-Id'` | Kafka message header name |
+| `bullDataKey` | `string` | `'__tenantId'` | Bull job data key |
+| `grpcMetadataKey` | `string` | `'x-tenant-id'` | gRPC metadata key |
 
 ## Error Hierarchy
 
@@ -682,6 +767,20 @@ npx @nestarc/tenancy init
 This generates:
 - `tenancy-setup.sql` — PostgreSQL RLS policies, roles, and grants
 - `tenancy.module-setup.ts` — NestJS module registration code
+
+Preview without writing files:
+
+```bash
+npx @nestarc/tenancy init --dry-run
+```
+
+Check if your SQL is in sync with the Prisma schema:
+
+```bash
+npx @nestarc/tenancy check
+```
+
+Validates table coverage, FORCE ROW LEVEL SECURITY, isolation/insert policies, and setting key consistency. Exits with code 0 (in sync) or 1 (drift detected).
 
 ## License
 

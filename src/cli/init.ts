@@ -6,6 +6,7 @@ import { generateModuleSetup } from './templates/module-setup';
 
 interface InitOptions {
   cwd?: string;
+  dryRun?: boolean;
 }
 
 // prompts package is dynamically required and returns mixed types per question
@@ -36,10 +37,9 @@ export async function runInit(options?: InitOptions): Promise<void> {
     console.log(`Found ${models.length} model(s) in ${path.relative(cwd, schemaPath) || 'schema.prisma'}`);
     const multiSchemaModels = models.filter((m) => m.schemaName);
     if (multiSchemaModels.length > 0) {
-      console.warn(
-        `\nWARNING: ${multiSchemaModels.length} model(s) use @@schema(): ${multiSchemaModels.map((m) => m.modelName).join(', ')}.\n` +
-        'The generated SQL uses unqualified table names and may target the wrong schema.\n' +
-        'Please review and add schema qualification (e.g., "myschema"."table") manually.\n',
+      console.log(
+        `\nInfo: ${multiSchemaModels.length} model(s) use @@schema(): ${multiSchemaModels.map((m) => m.modelName).join(', ')}.\n` +
+        'The generated SQL uses schema-qualified table names (e.g., "myschema"."table").\n',
       );
     }
   } else {
@@ -115,6 +115,15 @@ export async function runInit(options?: InitOptions): Promise<void> {
     tenantFormat: response.tenantFormat,
     customRegex: response.customRegex,
   });
+
+  if (options?.dryRun) {
+    console.log('\n--- tenancy-setup.sql ---\n');
+    console.log(sql);
+    console.log('\n--- tenancy.module-setup.ts ---\n');
+    console.log(moduleSetup);
+    console.log('\n(dry run — no files written)');
+    return;
+  }
 
   await writeFileWithConfirm(prompts, path.join(cwd, 'tenancy-setup.sql'), sql);
   await writeFileWithConfirm(prompts, path.join(cwd, 'tenancy.module-setup.ts'), moduleSetup);

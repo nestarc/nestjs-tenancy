@@ -682,20 +682,28 @@ describe('createPrismaTenancyExtension', () => {
     });
   });
 
-  describe('experimentalTransactionSupport', () => {
-    function getHandlerWithExperimental(mockPrisma: any) {
+  describe('interactiveTransactionSupport', () => {
+    function buildMockPrismaWithItx() {
+      const base = buildMockPrisma();
+      const mockItxExecuteRaw = jest.fn().mockResolvedValue(1);
+      (base.mockPrisma as any)._createItxClient = jest.fn().mockReturnValue({
+        $executeRaw: mockItxExecuteRaw,
+      });
+      return { ...base, mockItxExecuteRaw };
+    }
+
+    function getHandlerWithItx(mockPrisma: any) {
       capturedFactory = null;
       createPrismaTenancyExtension(service, {
-        experimentalTransactionSupport: true,
+        interactiveTransactionSupport: true,
       });
       const extensionConfig = capturedFactory!(mockPrisma);
       return extensionConfig.query.$allModels.$allOperations;
     }
 
-    it('should detect interactive transaction via __internalParams', async () => {
-      const { mockPrisma, mockTransaction } = buildMockPrisma();
-      mockTransaction.mockResolvedValue([1, [{ id: 1 }]]);
-      const handler = getHandlerWithExperimental(mockPrisma);
+    it('should use itx client when inside interactive transaction', async () => {
+      const { mockPrisma, mockTransaction, mockItxExecuteRaw } = buildMockPrismaWithItx();
+      const handler = getHandlerWithItx(mockPrisma);
 
       const mockQuery = jest.fn().mockResolvedValue([{ id: 1 }]);
 
@@ -712,18 +720,20 @@ describe('createPrismaTenancyExtension', () => {
               },
             });
 
-            // When in itx mode with _createItxClient available, should NOT use batch transaction
-            // If _createItxClient not available, falls back to batch (which IS called)
-            // The key test: the handler accepts __internalParams without crashing
+            // Should use itx client, NOT batch transaction
+            expect((mockPrisma as any)._createItxClient).toHaveBeenCalled();
+            expect(mockItxExecuteRaw).toHaveBeenCalled();
+            expect(mockTransaction).not.toHaveBeenCalled();
+            expect(mockQuery).toHaveBeenCalled();
             resolve();
           } catch (e) { reject(e); }
         });
       });
     });
 
-    it('should fall back to batch transaction when no __internalParams', async () => {
-      const { mockPrisma, mockTransaction } = buildMockPrisma();
-      const handler = getHandlerWithExperimental(mockPrisma);
+    it('should fall back to batch transaction when not in itx', async () => {
+      const { mockPrisma, mockTransaction } = buildMockPrismaWithItx();
+      const handler = getHandlerWithItx(mockPrisma);
 
       mockTransaction.mockResolvedValue([1, [{ id: 1 }]]);
       const mockQuery = jest.fn().mockReturnValue(Promise.resolve([{ id: 1 }]));
@@ -745,8 +755,22 @@ describe('createPrismaTenancyExtension', () => {
       });
     });
 
-    it('should not enable experimental mode by default', async () => {
-      const { mockPrisma, mockTransaction } = buildMockPrisma();
+    it('should throw at creation time if _createItxClient is not available', () => {
+      const { mockPrisma } = buildMockPrisma();
+      // mockPrisma does NOT have _createItxClient
+
+      capturedFactory = null;
+      createPrismaTenancyExtension(service, {
+        interactiveTransactionSupport: true,
+      });
+
+      expect(() => capturedFactory!(mockPrisma)).toThrow(
+        '_createItxClient',
+      );
+    });
+
+    it('should not enable itx support by default', async () => {
+      const { mockPrisma, mockTransaction } = buildMockPrismaWithItx();
       const handler = getHandler(mockPrisma);
 
       mockTransaction.mockResolvedValue([1, [{ id: 1 }]]);
@@ -765,12 +789,93 @@ describe('createPrismaTenancyExtension', () => {
               },
             });
 
-            // Without experimental flag, should still use batch transaction
+            // Without itx flag, should still use batch transaction
             expect(mockTransaction).toHaveBeenCalled();
+            expect((mockPrisma as any)._createItxClient).not.toHaveBeenCalled();
             resolve();
           } catch (e) { reject(e); }
         });
       });
+    });
+
+    it('should accept deprecated experimentalTransactionSupport flag', () => {
+      const { mockPrisma } = buildMockPrismaWithItx();
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      capturedFactory = null;
+      createPrismaTenancyExtension(service, {
+        experimentalTransactionSupport: true,
+      });
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('deprecated'),
+      );
+
+      // Should still work (itx supported since mockPrisma has _createItxClient)
+      expect(() => capturedFactory!(mockPrisma)).not.toThrow();
+
+      warnSpy.mockRestore();
+    });
+
+    it('should NOT throw for deprecated flag when _createItxClient is missing (fallback)', async () => {
+      const { mockPrisma, mockTransaction } = buildMockPrisma();
+      // mockPrisma does NOT have _createItxClient — deprecated flag should fallback
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      capturedFactory = null;
+      createPrismaTenancyExtension(service, {
+        experimentalTransactionSupport: true,
+      });
+
+      // Should NOT throw at creation time
+      expect(() => capturedFactory!(mockPrisma)).not.toThrow();
+
+      // At runtime with itx, should warn and fallback to batch
+      const extensionConfig = capturedFactory!(mockPrisma);
+      const handler = extensionConfig.query.$allModels.$allOperations;
+      mockTransaction.mockResolvedValue([1, [{ id: 1 }]]);
+
+      await new Promise<void>((resolve, reject) => {
+        context.run('tenant-id', async () => {
+          try {
+            await handler({
+              model: 'User',
+              operation: 'findMany',
+              args: {},
+              query: jest.fn().mockReturnValue(Promise.resolve([{ id: 1 }])),
+              __internalParams: {
+                transaction: { kind: 'itx', id: 'tx-123' },
+              },
+            });
+
+            // Should fallback to batch transaction
+            expect(mockTransaction).toHaveBeenCalled();
+            // Should have warned about fallback
+            expect(warnSpy).toHaveBeenCalledWith(
+              expect.stringContaining('Falling back to batch'),
+            );
+            resolve();
+          } catch (e) { reject(e); }
+        });
+      });
+
+      warnSpy.mockRestore();
+    });
+
+    it('should prefer interactiveTransactionSupport over deprecated flag', () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      // interactiveTransactionSupport: false takes precedence — no itx validation
+      // mockPrisma without _createItxClient would NOT throw
+      const { mockPrisma: prismaNoItx } = buildMockPrisma();
+      capturedFactory = null;
+      createPrismaTenancyExtension(service, {
+        interactiveTransactionSupport: false,
+        experimentalTransactionSupport: true,
+      });
+      expect(() => capturedFactory!(prismaNoItx)).not.toThrow();
+
+      warnSpy.mockRestore();
     });
   });
 });

@@ -18,9 +18,23 @@ export interface PrismaTenancyExtensionOptions {
    */
   failClosed?: boolean;
   /**
-   * EXPERIMENTAL: Enable transparent interactive transaction support.
-   * Relies on undocumented Prisma internals (__internalParams).
-   * May break on Prisma upgrades. Use tenancyTransaction() for reliable support.
+   * Enable transparent interactive transaction support.
+   *
+   * When enabled, the extension detects interactive transactions
+   * (`$transaction(async (tx) => ...)`) and sets the RLS context
+   * on the transaction's connection directly.
+   *
+   * Relies on Prisma internal APIs (`__internalParams`, `_createItxClient`).
+   * Compatibility is validated at extension creation time — an error is thrown
+   * immediately if the current Prisma version does not support this feature.
+   *
+   * For an alternative that uses only public Prisma APIs, see `tenancyTransaction()`.
+   *
+   * @default false
+   */
+  interactiveTransactionSupport?: boolean;
+  /**
+   * @deprecated Use `interactiveTransactionSupport` instead. Will be removed in v1.0.
    */
   experimentalTransactionSupport?: boolean;
 }
@@ -69,12 +83,34 @@ export function createPrismaTenancyExtension(
   const tenantIdField = options?.tenantIdField ?? 'tenant_id';
   const failClosedMode = options?.failClosed ?? false;
 
+  const useNewFlag = options?.interactiveTransactionSupport === true;
+  const useDeprecatedFlag =
+    !useNewFlag && (options?.experimentalTransactionSupport === true);
+  const itxSupport = useNewFlag || useDeprecatedFlag;
+
+  if (useDeprecatedFlag) {
+    console.warn(
+      '[@nestarc/tenancy] `experimentalTransactionSupport` is deprecated. ' +
+      'Use `interactiveTransactionSupport` instead. It will be removed in v1.0.',
+    );
+  }
+
   return Prisma.defineExtension((prisma) => {
     // Prisma's defineExtension callback receives a Client type that
     // doesn't fully expose $executeRaw/$transaction in its generic form.
     // Cast to access these methods which are available at runtime.
     const baseClient = prisma as any;
-    let experimentalWarned = false;
+    let deprecatedItxWarned = false;
+
+    // Strict validation only for the new flag. The deprecated flag
+    // preserves the old fallback-to-batch behavior for compatibility.
+    if (useNewFlag && typeof baseClient._createItxClient !== 'function') {
+      throw new Error(
+        '[@nestarc/tenancy] `interactiveTransactionSupport` requires Prisma internal API ' +
+        '`_createItxClient` which is not available in this Prisma version. ' +
+        'Either upgrade/downgrade Prisma, or use `tenancyTransaction()` instead.',
+      );
+    }
 
     return baseClient.$extends({
       query: {
@@ -130,29 +166,24 @@ export function createPrismaTenancyExtension(
               }
             }
 
-            const experimentalTx = options?.experimentalTransactionSupport ?? false;
-
-            if (experimentalTx) {
+            if (itxSupport) {
               const txInfo = rest?.__internalParams?.transaction;
 
               if (txInfo?.kind === 'itx') {
-                try {
-                  const itxClient = (baseClient as any)._createItxClient?.(txInfo);
-                  if (itxClient) {
-                    await itxClient.$executeRaw`SELECT set_config(${settingKey}, ${tenantId}, TRUE)`;
-                    return query(args);
-                  }
-                } catch {
-                  // Fall through to batch transaction
+                if (typeof baseClient._createItxClient === 'function') {
+                  const itxClient = baseClient._createItxClient(txInfo);
+                  await itxClient.$executeRaw`SELECT set_config(${settingKey}, ${tenantId}, TRUE)`;
+                  return query(args);
                 }
 
-                if (!experimentalWarned) {
+                // Deprecated flag: fallback to batch transaction with warning
+                if (useDeprecatedFlag && !deprecatedItxWarned) {
                   console.warn(
                     '[@nestarc/tenancy] experimentalTransactionSupport: ' +
                     'Prisma internal API not available. Falling back to batch transaction. ' +
                     'Use tenancyTransaction() for reliable interactive transaction support.',
                   );
-                  experimentalWarned = true;
+                  deprecatedItxWarned = true;
                 }
               }
             }

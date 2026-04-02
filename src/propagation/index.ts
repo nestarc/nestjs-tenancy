@@ -1,3 +1,11 @@
 export { HttpTenantPropagator } from './http-tenant-propagator';
 export type { HttpPropagationOptions } from './http-tenant-propagator';
 export { propagateTenantHeaders } from './propagate-tenant-headers';
+export { BullTenantPropagator } from './bull-tenant-propagator';
+export type { BullPropagationOptions } from './bull-tenant-propagator';
+export { KafkaTenantPropagator } from './kafka-tenant-propagator';
+export type { KafkaPropagationOptions, KafkaMessageLike } from './kafka-tenant-propagator';
+export { GrpcTenantPropagator } from './grpc-tenant-propagator';
+export type { GrpcPropagationOptions, GrpcMetadataLike } from './grpc-tenant-propagator';
+export { TenantContextInterceptor } from './tenant-context.interceptor';
+export type { TenantContextInterceptorOptions } from './tenant-context.interceptor';
