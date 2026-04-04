@@ -50,7 +50,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ksyq12/nestjs-tenancy"
+    "url": "https://github.com/nestarc/nestjs-tenancy"
   },
   "peerDependencies": {
     "@nestjs/common": "^10.0.0 || ^11.0.0",

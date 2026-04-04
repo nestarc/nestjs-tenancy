@@ -14,7 +14,7 @@
 If you discover a security vulnerability in `@nestarc/tenancy`, please report it responsibly:
 
 1. **Do not** open a public GitHub issue
-2. Email: **security@nestarc.dev** (or open a [GitHub Security Advisory](https://github.com/ksyq12/nestjs-tenancy/security/advisories/new))
+2. Email: **security@nestarc.dev** (or open a [GitHub Security Advisory](https://github.com/nestarc/nestjs-tenancy/security/advisories/new))
 3. Include: description, reproduction steps, affected versions, and potential impact
 
 We will acknowledge receipt within 48 hours and aim to release a fix within 7 days for critical issues.
