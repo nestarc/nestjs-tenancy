@@ -164,6 +164,38 @@ describe('TenantMiddleware', () => {
       ).rejects.toThrow('audit failed');
     });
 
+    it('should end telemetry span even when onTenantResolved throws', async () => {
+      const mockSpan = { end: jest.fn() };
+      const mockTelemetry = {
+        setTenantAttribute: jest.fn(),
+        startSpan: jest.fn().mockReturnValue(mockSpan),
+        endSpan: jest.fn(),
+      };
+      const options: TenancyModuleOptions = {
+        tenantExtractor: 'x-tenant-id',
+        onTenantResolved: async () => { throw new Error('hook failed'); },
+      };
+      const mw = new TenantMiddleware(
+        options,
+        new TenancyContext(),
+        createMockEventService(),
+        mockTelemetry as any,
+      );
+
+      await expect(
+        new Promise((resolve, reject) => {
+          mw.use(
+            mockReq({ 'x-tenant-id': '550e8400-e29b-41d4-a716-446655440000' }),
+            mockRes(),
+            resolve,
+          ).catch(reject);
+        }),
+      ).rejects.toThrow('hook failed');
+
+      expect(mockTelemetry.startSpan).toHaveBeenCalledWith('tenant.resolved');
+      expect(mockTelemetry.endSpan).toHaveBeenCalledWith(mockSpan);
+    });
+
     it('should NOT call next() when onTenantNotFound returns "skip"', async () => {
       const onTenantNotFound = jest.fn().mockReturnValue('skip');
       const mw = createMiddleware({ onTenantNotFound });
