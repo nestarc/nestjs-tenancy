@@ -263,6 +263,74 @@ model User {
       );
     });
 
+    it('should detect mixed setting keys (first correct, second wrong)', () => {
+      writeSchema(`
+model User {
+  id String @id
+  tenant_id String
+}
+model Post {
+  id String @id
+  tenant_id String
+}
+      `);
+
+      // Manually craft SQL: User has correct key, Post has wrong key
+      const sql = [
+        'ALTER TABLE "User" ENABLE ROW LEVEL SECURITY;',
+        'ALTER TABLE "User" FORCE ROW LEVEL SECURITY;',
+        "CREATE POLICY tenant_isolation_User ON \"User\"",
+        "  USING (tenant_id = current_setting('app.current_tenant', true)::text);",
+        "CREATE POLICY tenant_insert_User ON \"User\"",
+        "  FOR INSERT WITH CHECK (tenant_id = current_setting('app.current_tenant', true)::text);",
+        'ALTER TABLE "Post" ENABLE ROW LEVEL SECURITY;',
+        'ALTER TABLE "Post" FORCE ROW LEVEL SECURITY;',
+        "CREATE POLICY tenant_isolation_Post ON \"Post\"",
+        "  USING (tenant_id = current_setting('app.wrong_key', true)::text);",
+        "CREATE POLICY tenant_insert_Post ON \"Post\"",
+        "  FOR INSERT WITH CHECK (tenant_id = current_setting('app.wrong_key', true)::text);",
+      ].join('\n');
+      writeSql(sql);
+
+      const result = runCheck({ cwd: tmpDir });
+      expect(result.inSync).toBe(false);
+      expect(result.warnings).toContainEqual(
+        expect.stringContaining('Setting key mismatch'),
+      );
+      // Should find at least 2 mismatches (isolation + insert policy for Post)
+      const keyWarnings = result.warnings.filter(w => w.includes('Setting key mismatch'));
+      expect(keyWarnings.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('should accept custom dbSettingKey and validate against it', () => {
+      writeSchema(`
+model User {
+  id String @id
+  tenant_id String
+}
+      `);
+
+      const sql = generateSetupSql({
+        models: [{ modelName: 'User', tableName: 'User' }],
+        dbSettingKey: 'custom.tenant_key',
+        sharedModels: [],
+        tenantIdField: 'tenant_id',
+      });
+      writeSql(sql);
+
+      // With matching custom key — should be in sync
+      const result = runCheck({ cwd: tmpDir, dbSettingKey: 'custom.tenant_key' });
+      expect(result.inSync).toBe(true);
+      expect(result.warnings).toHaveLength(0);
+
+      // With default key — should report mismatch
+      const resultDefault = runCheck({ cwd: tmpDir });
+      expect(resultDefault.inSync).toBe(false);
+      expect(resultDefault.warnings).toContainEqual(
+        expect.stringContaining('Setting key mismatch'),
+      );
+    });
+
     it('should return no warnings for properly generated SQL', () => {
       writeSchema(`
 model User {
