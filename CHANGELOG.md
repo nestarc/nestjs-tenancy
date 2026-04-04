@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] - 2026-04-04
+
+### Fixed
+
+- **Build regression** — `@opentelemetry/api` was declared as a devDependency but not installed, causing `TS2307` build failures on clean checkout. Now properly installed and verified.
+
+### Added
+
+- **Span lifecycle regression test** — verifies that the `tenant.resolved` telemetry span is closed (via `finally`) even when `onTenantResolved` hook throws.
+- **CLI check regression tests** — verifies mixed `current_setting()` key detection across multiple policies, and validates that `--db-setting-key` custom flag works end-to-end.
+- **interactiveTransactionSupport E2E test** — real-database test verifying RLS isolation inside interactive transactions using Prisma internal APIs (`_createItxClient`).
+
 ## [0.7.0] - 2026-04-03
 
 ### Added
