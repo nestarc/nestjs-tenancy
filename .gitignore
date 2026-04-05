@@ -28,6 +28,7 @@ lerna-debug.log*
 /coverage
 .idea
 .vscode
+.claude
 *.swp
 *.swo
 
