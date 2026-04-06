@@ -21,6 +21,10 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 - **Custom Extractor docs** updated to use `TenancyRequest` instead of Express `Request`
 - **Compatibility claim** clarified: Prisma 6 is E2E-tested, Prisma 5 is unit-tested
+- **Lifecycle hook table** in README updated to `TenancyRequest` / `TenancyResponse` signatures
+- **`SECURITY.md`** updated with `0.9.x` supported release line
+- **`postbuild` script** replaced POSIX-only `printf | cat | mv` with cross-platform Node.js one-liner
+- **`test:e2e` script** replaced POSIX shell chaining with cross-platform `scripts/test-e2e.js` runner
 
 ### Migration Guide
 

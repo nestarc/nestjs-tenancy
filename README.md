@@ -30,8 +30,9 @@ One line of code. Automatic tenant isolation.
 - **CLI drift detection** — `npx @nestarc/tenancy check` validates SQL against Prisma schema
 - **Multi-schema support** — `@@schema()` directives generate schema-qualified SQL (e.g., `"auth"."users"`)
 - **ccTLD-aware subdomain extraction** — accurate parsing for `.co.uk`, `.co.jp`, `.com.au`, etc.
+- **Framework-agnostic** — public API uses `TenancyRequest` / `TenancyResponse` instead of Express types. Works with Express, Fastify, and raw Node.js HTTP
 - **SQL injection safe** — `set_config()` with bind parameters, plus UUID validation by default
-- **NestJS 10 & 11** compatible, **Prisma 5 & 6** compatible (CI-tested with Prisma 6; Prisma 5 unit-tested)
+- **NestJS 10 & 11** compatible, **Prisma 5 & 6** compatible (E2E-tested with Prisma 6; Prisma 5 unit-tested)
 
 ## Performance
 
