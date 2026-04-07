@@ -48,6 +48,7 @@
     "saas"
   ],
   "license": "MIT",
+  "homepage": "https://nestarc.dev",
   "repository": {
     "type": "git",
     "url": "https://github.com/nestarc/nestjs-tenancy"

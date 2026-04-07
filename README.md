@@ -4,6 +4,7 @@
 [![CI](https://github.com/nestarc/nestjs-tenancy/actions/workflows/ci.yml/badge.svg)](https://github.com/nestarc/nestjs-tenancy/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/nestarc/nestjs-tenancy/graph/badge.svg)](https://codecov.io/gh/nestarc/nestjs-tenancy)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Docs](https://img.shields.io/badge/docs-nestarc.dev-blue.svg)](https://nestarc.dev)
 
 Multi-tenancy module for NestJS with **PostgreSQL Row Level Security (RLS)** and **Prisma** support.
 
