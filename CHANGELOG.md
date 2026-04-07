@@ -4,6 +4,64 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.10.0] - 2026-04-08
+
+### Added
+
+- **`crossCheck` sub-object format** — new grouped configuration for tenant ID forgery prevention: `crossCheck: { extractor, onFailed }`. The flat `crossCheckExtractor` / `onCrossCheckFailed` fields are deprecated (will be removed in v2.0) and emit a warning when used.
+- **`PrismaTransactionClient` structural type** — exported interface for typing the `prisma` parameter in `tenancyTransaction()`. Replaces the previous `any` type. `PrismaClient` satisfies this automatically.
+- **`TenancyEventMap` type** — type-safe mapping from event names to payload types. `TenancyEventService.emit()` now enforces correct event/payload combinations at compile time.
+- **`TenancyResponse` method signatures** — optional `status()`, `json()`, `end()` methods for better IDE guidance in `onTenantNotFound` callbacks.
+- **`PathTenantExtractor` constructor validation** — throws immediately if `paramName` is not found in `pattern` (previously returned `null` silently for every request).
+- **Test coverage audit** — 24 new unit tests closing P0–P3 coverage gaps: Prisma `$transaction` error propagation, concurrent tenant isolation, TelemetryService `onModuleInit` success path, TenancyModule `useExisting` branch, Interceptor gRPC/Kafka Buffer extraction, middleware extractor throw propagation, and more.
+
+### Changed (Breaking)
+
+- **`TenancyRequest` / `TenancyResponse` index signature** changed from `[key: string]: any` to `[key: string]: unknown`. Platform-specific properties now require type assertion: `(request as import('express').Request).cookies`. This was already the documented recommended pattern.
+- **`experimentalTransactionSupport` removed** from `PrismaTenancyExtensionOptions`. Deprecated since v0.6.0 — use `interactiveTransactionSupport` instead.
+- **`TenantContextInterceptorOptions`** changed from `interface` to discriminated union `type`. When `transport` is specified, only the matching transport key is accepted. Existing code without `transport` is fully compatible via the `transport?: undefined` variant.
+- **`TenancyTransactionOptions.isolationLevel`** narrowed from `string` to `'ReadUncommitted' | 'ReadCommitted' | 'RepeatableRead' | 'Serializable'`.
+
+### Changed (Non-Breaking)
+
+- **`TenantStore`** (internal) changed from `interface` to discriminated union, preventing contradictory `tenantId + bypassed` states.
+- **Constants consolidated** — `DEFAULT_BULL_DATA_KEY` and `DEFAULT_GRPC_METADATA_KEY` moved to `tenancy.constants.ts`, eliminating duplication in propagator and interceptor files.
+- **`tenancyTransaction()` `prisma` parameter** typed as `PrismaTransactionClient` instead of `any`. No runtime change — `PrismaClient` already satisfies this structural type.
+
+### Migration Guide
+
+**`experimentalTransactionSupport` users:**
+```typescript
+// Before (v0.9.0)
+createPrismaTenancyExtension(service, { experimentalTransactionSupport: true });
+// After (v0.10.0)
+createPrismaTenancyExtension(service, { interactiveTransactionSupport: true });
+```
+
+**`TenancyRequest` dynamic property access:**
+```typescript
+// Before — no type error
+request.cookies.session;
+// After — use type assertion
+(request as import('express').Request).cookies.session;
+```
+
+**`crossCheck` configuration (optional — old format still works with deprecation warning):**
+```typescript
+// Before (deprecated, will be removed in v2.0)
+TenancyModule.forRoot({
+  crossCheckExtractor: new JwtClaimTenantExtractor({ claimKey: 'org_id' }),
+  onCrossCheckFailed: 'reject',
+})
+// After (recommended)
+TenancyModule.forRoot({
+  crossCheck: {
+    extractor: new JwtClaimTenantExtractor({ claimKey: 'org_id' }),
+    onFailed: 'reject',
+  },
+})
+```
+
 ## [0.9.0] - 2026-04-06
 
 ### Added
