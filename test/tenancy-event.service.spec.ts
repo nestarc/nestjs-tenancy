@@ -13,7 +13,7 @@ describe('TenancyEventService', () => {
       await service.onModuleInit();
 
       // Should silently skip
-      expect(() => service.emit('tenant.resolved', { tenantId: 'test' })).not.toThrow();
+      expect(() => service.emit('tenant.resolved', { tenantId: 'test', request: { headers: {} } })).not.toThrow();
     });
   });
 
@@ -32,7 +32,7 @@ describe('TenancyEventService', () => {
       const service = new TenancyEventService(moduleRef as any);
       await service.onModuleInit();
 
-      const payload = { tenantId: 'test-tenant' };
+      const payload = { tenantId: 'test-tenant', request: { headers: {} } };
       service.emit('tenant.resolved', payload);
 
       expect(mockEmitter.emit).toHaveBeenCalledWith('tenant.resolved', payload);

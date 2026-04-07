@@ -4,3 +4,5 @@ export const DEFAULT_DB_SETTING_KEY = 'app.current_tenant';
 export const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const DEFAULT_PROPAGATION_HEADER = 'X-Tenant-Id';
+export const DEFAULT_BULL_DATA_KEY = '__tenantId';
+export const DEFAULT_GRPC_METADATA_KEY = 'x-tenant-id';

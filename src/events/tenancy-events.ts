@@ -31,3 +31,15 @@ export interface TenantCrossCheckFailedEvent {
   crossCheckTenantId: string;
   request: TenancyRequest;
 }
+
+/**
+ * Type-safe mapping from event name to payload type.
+ * Used by `TenancyEventService.emit()` to enforce correct payloads at compile time.
+ */
+export interface TenancyEventMap {
+  [TenancyEvents.RESOLVED]: TenantResolvedEvent;
+  [TenancyEvents.NOT_FOUND]: TenantNotFoundEvent;
+  [TenancyEvents.VALIDATION_FAILED]: TenantValidationFailedEvent;
+  [TenancyEvents.CONTEXT_BYPASSED]: TenantContextBypassedEvent;
+  [TenancyEvents.CROSS_CHECK_FAILED]: TenantCrossCheckFailedEvent;
+}

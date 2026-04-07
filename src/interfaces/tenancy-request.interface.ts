@@ -24,7 +24,18 @@ export interface TenancyRequest {
  *
  * Used only in `onTenantNotFound` callback. Framework-agnostic — both
  * Express `Response` and Fastify `FastifyReply` satisfy this interface.
+ *
+ * The named methods are optional to maintain compatibility with any
+ * response-like object. If you need the full response API, use type
+ * assertion: `(response as import('express').Response)`.
  */
 export interface TenancyResponse {
+  /** Set HTTP status code. Returns `this` for chaining (Express/Fastify convention). */
+  status?(code: number): this;
+  /** Send JSON response body. */
+  json?(body: unknown): void;
+  /** End the response without a body. */
+  end?(): void;
+  /** Index signature for platform-specific properties. */
   [key: string]: any;
 }

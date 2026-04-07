@@ -1,10 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { AsyncLocalStorage } from 'async_hooks';
 
-interface TenantStore {
-  tenantId: string | null;
-  bypassed?: boolean;
-}
+type TenantStore =
+  | { tenantId: string; bypassed: false }
+  | { tenantId: null; bypassed: true };
 
 @Injectable()
 export class TenancyContext {

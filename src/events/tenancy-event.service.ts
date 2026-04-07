@@ -1,5 +1,6 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
+import { TenancyEventMap } from './tenancy-events';
 
 /**
  * Optional event emission service that integrates with @nestjs/event-emitter.
@@ -25,7 +26,7 @@ export class TenancyEventService implements OnModuleInit {
     }
   }
 
-  emit(event: string, payload: any): void {
+  emit<K extends keyof TenancyEventMap>(event: K, payload: TenancyEventMap[K]): void {
     this.emitter?.emit(event, payload);
   }
 }

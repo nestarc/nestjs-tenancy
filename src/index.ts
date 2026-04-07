@@ -48,4 +48,5 @@ export type {
   TenantValidationFailedEvent,
   TenantContextBypassedEvent,
   TenantCrossCheckFailedEvent,
+  TenancyEventMap,
 } from './events/tenancy-events';

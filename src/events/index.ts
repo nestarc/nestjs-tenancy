@@ -5,4 +5,6 @@ export type {
   TenantNotFoundEvent,
   TenantValidationFailedEvent,
   TenantContextBypassedEvent,
+  TenantCrossCheckFailedEvent,
+  TenancyEventMap,
 } from './tenancy-events';

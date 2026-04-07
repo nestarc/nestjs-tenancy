@@ -31,10 +31,9 @@ describe('PathTenantExtractor', () => {
     expect(extractor.extract(req)).toBe('my-org');
   });
 
-  it('should return null when paramName not found in pattern', () => {
-    const extractor = new PathTenantExtractor({ pattern: '/api/:id', paramName: 'tenantId' });
-    const req = { path: '/api/123' } as any;
-    expect(extractor.extract(req)).toBeNull();
+  it('should throw at construction when paramName not found in pattern', () => {
+    expect(() => new PathTenantExtractor({ pattern: '/api/:id', paramName: 'tenantId' }))
+      .toThrow('":tenantId" not found in pattern "/api/:id"');
   });
 
   it('should return null when request.path is undefined', () => {

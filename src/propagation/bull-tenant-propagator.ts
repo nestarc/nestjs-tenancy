@@ -1,12 +1,11 @@
 import { TenancyContext } from '../services/tenancy-context';
 import { TenantContextCarrier } from '../interfaces/tenant-context-carrier.interface';
+import { DEFAULT_BULL_DATA_KEY } from '../tenancy.constants';
 
 export interface BullPropagationOptions {
   /** Key name used to store tenant ID in job data. Defaults to '__tenantId'. */
   dataKey?: string;
 }
-
-const DEFAULT_BULL_DATA_KEY = '__tenantId';
 
 /**
  * Bull/BullMQ tenant propagator.

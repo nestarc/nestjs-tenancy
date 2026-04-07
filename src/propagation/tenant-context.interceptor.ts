@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { Observable, Subscription } from 'rxjs';
 import { TenancyContext } from '../services/tenancy-context';
-import { DEFAULT_PROPAGATION_HEADER } from '../tenancy.constants';
+import { DEFAULT_PROPAGATION_HEADER, DEFAULT_BULL_DATA_KEY, DEFAULT_GRPC_METADATA_KEY } from '../tenancy.constants';
 
 export interface TenantContextInterceptorOptions {
   /** Kafka message header name. Defaults to 'X-Tenant-Id'. */
@@ -21,9 +21,6 @@ export interface TenantContextInterceptorOptions {
    */
   transport?: 'kafka' | 'bull' | 'grpc';
 }
-
-const DEFAULT_BULL_DATA_KEY = '__tenantId';
-const DEFAULT_GRPC_METADATA_KEY = 'x-tenant-id';
 
 /**
  * NestJS interceptor that restores tenant context from incoming microservice messages.

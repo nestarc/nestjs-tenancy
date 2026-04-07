@@ -3,7 +3,8 @@ import { DEFAULT_DB_SETTING_KEY } from '../tenancy.constants';
 
 export interface TenancyTransactionOptions {
   timeout?: number;
-  isolationLevel?: string;
+  /** PostgreSQL transaction isolation level. */
+  isolationLevel?: 'ReadUncommitted' | 'ReadCommitted' | 'RepeatableRead' | 'Serializable';
   dbSettingKey?: string;
 }
 

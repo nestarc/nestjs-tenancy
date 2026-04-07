@@ -1,12 +1,11 @@
 import { TenancyContext } from '../services/tenancy-context';
 import { TenantContextCarrier } from '../interfaces/tenant-context-carrier.interface';
+import { DEFAULT_GRPC_METADATA_KEY } from '../tenancy.constants';
 
 export interface GrpcPropagationOptions {
   /** Metadata key for tenant ID. Defaults to 'x-tenant-id' (lowercase per gRPC convention). */
   metadataKey?: string;
 }
-
-const DEFAULT_GRPC_METADATA_KEY = 'x-tenant-id';
 
 /**
  * Structural type for gRPC Metadata — no dependency on @grpc/grpc-js.

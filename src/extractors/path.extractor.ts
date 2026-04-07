@@ -15,6 +15,11 @@ export class PathTenantExtractor implements TenantExtractor {
     this.paramIndex = this.patternSegments.findIndex(
       (seg) => seg === `:${options.paramName}`,
     );
+    if (this.paramIndex === -1) {
+      throw new Error(
+        `PathTenantExtractor: ":${options.paramName}" not found in pattern "${options.pattern}"`,
+      );
+    }
   }
 
   extract(request: TenancyRequest): string | null {
