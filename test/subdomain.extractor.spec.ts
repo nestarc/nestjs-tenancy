@@ -79,4 +79,37 @@ describe('SubdomainTenantExtractor', () => {
     // Internal domains should work even if not in public suffix list
     expect(extractor.extract(req)).toBe('tenant1');
   });
+
+  it('should return null when hostname is undefined', () => {
+    const extractor = new SubdomainTenantExtractor();
+    const req = {} as any;
+    expect(extractor.extract(req)).toBeNull();
+  });
+
+  it('should return null for bare TLD hostname', () => {
+    const extractor = new SubdomainTenantExtractor();
+    // A hostname that is just a TLD — psl.parse() returns error for this
+    const req = { hostname: 'com' } as any;
+    expect(extractor.extract(req)).toBeNull();
+  });
+
+  it('should return null for empty string hostname', () => {
+    const extractor = new SubdomainTenantExtractor();
+    const req = { hostname: '' } as any;
+    expect(extractor.extract(req)).toBeNull();
+  });
+
+  it('should handle single-label internal hostname', () => {
+    const extractor = new SubdomainTenantExtractor();
+    // Single label like 'myserver' — no subdomain possible
+    const req = { hostname: 'myserver' } as any;
+    expect(extractor.extract(req)).toBeNull();
+  });
+
+  it('should handle two-label internal hostname', () => {
+    const extractor = new SubdomainTenantExtractor();
+    // Two labels like 'host.internal' — not enough for subdomain with 3-label requirement
+    const req = { hostname: 'host.internal' } as any;
+    expect(extractor.extract(req)).toBeNull();
+  });
 });

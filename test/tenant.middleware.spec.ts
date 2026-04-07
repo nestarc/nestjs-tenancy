@@ -337,6 +337,34 @@ describe('TenantMiddleware', () => {
     });
   });
 
+  describe('Extractor error propagation', () => {
+    it('should propagate error when extractor throws', async () => {
+      const throwingExtractor: TenantExtractor = {
+        extract: () => { throw new Error('extractor crashed'); },
+      };
+      const mw = createMiddleware({ tenantExtractor: throwingExtractor });
+
+      await expect(
+        new Promise((resolve, reject) => {
+          mw.use(mockReq({ 'x-tenant-id': 'any' }), mockRes(), resolve).catch(reject);
+        }),
+      ).rejects.toThrow('extractor crashed');
+    });
+
+    it('should propagate error when async extractor rejects', async () => {
+      const throwingExtractor: TenantExtractor = {
+        extract: async () => { throw new Error('async extractor failed'); },
+      };
+      const mw = createMiddleware({ tenantExtractor: throwingExtractor });
+
+      await expect(
+        new Promise((resolve, reject) => {
+          mw.use(mockReq(), mockRes(), resolve).catch(reject);
+        }),
+      ).rejects.toThrow('async extractor failed');
+    });
+  });
+
   describe('Events', () => {
     it('should emit tenant.resolved on successful extraction', (done) => {
       const eventService = createMockEventService();

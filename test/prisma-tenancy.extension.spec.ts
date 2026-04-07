@@ -878,4 +878,110 @@ describe('createPrismaTenancyExtension', () => {
       warnSpy.mockRestore();
     });
   });
+
+  describe('error propagation', () => {
+    it('should propagate $transaction rejection to caller', async () => {
+      const { mockPrisma, mockTransaction } = buildMockPrisma();
+      const handler = getHandler(mockPrisma);
+
+      const dbError = new Error('connection refused');
+      mockTransaction.mockRejectedValue(dbError);
+
+      await new Promise<void>((resolve, reject) => {
+        context.run('tenant-id', async () => {
+          try {
+            await expect(
+              handler({
+                model: 'User',
+                operation: 'findMany',
+                args: {},
+                query: jest.fn().mockReturnValue(Promise.resolve([])),
+              }),
+            ).rejects.toThrow('connection refused');
+            resolve();
+          } catch (e) { reject(e); }
+        });
+      });
+    });
+
+    it('should propagate set_config failure within $transaction', async () => {
+      const { mockPrisma, mockTransaction, mockExecuteRaw } = buildMockPrisma();
+      const handler = getHandler(mockPrisma);
+
+      mockExecuteRaw.mockRejectedValue(new Error('unrecognized configuration parameter'));
+      mockTransaction.mockImplementation(async (txArray: any[]) => {
+        return Promise.all(txArray);
+      });
+
+      await new Promise<void>((resolve, reject) => {
+        context.run('tenant-id', async () => {
+          try {
+            await expect(
+              handler({
+                model: 'User',
+                operation: 'findMany',
+                args: {},
+                query: jest.fn().mockReturnValue(Promise.resolve([])),
+              }),
+            ).rejects.toThrow('unrecognized configuration parameter');
+            resolve();
+          } catch (e) { reject(e); }
+        });
+      });
+    });
+  });
+
+  describe('concurrent tenant isolation', () => {
+    it('should pass correct tenantId for each concurrent invocation', async () => {
+      const { mockPrisma, mockTransaction, mockExecuteRaw } = buildMockPrisma();
+
+      const capturedTenantIds: string[] = [];
+      mockExecuteRaw.mockImplementation((...args: any[]) => {
+        const [, ...values] = args;
+        const tenantId = values.find((v: string) => v !== 'app.current_tenant');
+        if (tenantId) capturedTenantIds.push(tenantId);
+        return Promise.resolve(1);
+      });
+      mockTransaction.mockImplementation(async (txArray: any[]) => {
+        const results = await Promise.all(txArray);
+        return results;
+      });
+
+      const handler = getHandler(mockPrisma);
+      const mockQuery = jest.fn().mockReturnValue(Promise.resolve([]));
+
+      await Promise.all([
+        new Promise<void>((resolve, reject) => {
+          context.run('tenant-aaa', async () => {
+            try {
+              await handler({
+                model: 'User',
+                operation: 'findMany',
+                args: {},
+                query: mockQuery,
+              });
+              resolve();
+            } catch (e) { reject(e); }
+          });
+        }),
+        new Promise<void>((resolve, reject) => {
+          context.run('tenant-bbb', async () => {
+            try {
+              await handler({
+                model: 'User',
+                operation: 'findMany',
+                args: {},
+                query: mockQuery,
+              });
+              resolve();
+            } catch (e) { reject(e); }
+          });
+        }),
+      ]);
+
+      expect(capturedTenantIds).toHaveLength(2);
+      expect(capturedTenantIds).toContain('tenant-aaa');
+      expect(capturedTenantIds).toContain('tenant-bbb');
+    });
+  });
 });

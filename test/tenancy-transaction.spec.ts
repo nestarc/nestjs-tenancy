@@ -92,6 +92,56 @@ describe('tenancyTransaction', () => {
     });
   });
 
+  it('should pass isolationLevel option to $transaction', async () => {
+    const { mockPrisma, mockTransaction } = buildMockPrisma();
+
+    mockTransaction.mockImplementation(async (cb: any) => {
+      const mockTx = { $executeRaw: jest.fn().mockResolvedValue(1) };
+      return cb(mockTx);
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      context.run('tenant-123', async () => {
+        try {
+          await tenancyTransaction(
+            mockPrisma, service, async () => 'ok',
+            { isolationLevel: 'Serializable' },
+          );
+          expect(mockTransaction).toHaveBeenCalledWith(
+            expect.any(Function),
+            { isolationLevel: 'Serializable' },
+          );
+          resolve();
+        } catch (e) { reject(e); }
+      });
+    });
+  });
+
+  it('should pass both timeout and isolationLevel options', async () => {
+    const { mockPrisma, mockTransaction } = buildMockPrisma();
+
+    mockTransaction.mockImplementation(async (cb: any) => {
+      const mockTx = { $executeRaw: jest.fn().mockResolvedValue(1) };
+      return cb(mockTx);
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      context.run('tenant-123', async () => {
+        try {
+          await tenancyTransaction(
+            mockPrisma, service, async () => 'ok',
+            { timeout: 10000, isolationLevel: 'ReadCommitted' },
+          );
+          expect(mockTransaction).toHaveBeenCalledWith(
+            expect.any(Function),
+            { timeout: 10000, isolationLevel: 'ReadCommitted' },
+          );
+          resolve();
+        } catch (e) { reject(e); }
+      });
+    });
+  });
+
   it('should propagate callback errors', async () => {
     const { mockPrisma, mockTransaction } = buildMockPrisma();
 

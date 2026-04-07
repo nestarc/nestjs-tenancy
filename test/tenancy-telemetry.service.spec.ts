@@ -94,4 +94,28 @@ describe('TenancyTelemetryService', () => {
       expect(() => service.setTenantAttribute('tenant-no-span')).not.toThrow();
     });
   });
+
+  describe('onModuleInit', () => {
+    it('should set traceApi and tracer when @opentelemetry/api is available', async () => {
+      const service = createService({ telemetry: { createSpans: true } });
+
+      // @opentelemetry/api is installed as a devDependency — onModuleInit should succeed
+      await service.onModuleInit();
+
+      // After successful init, setTenantAttribute should not throw
+      expect(() => service.setTenantAttribute('tenant-init-test')).not.toThrow();
+
+      // tracer should be initialized — startSpan returns a real span object
+      const span = service.startSpan('test.init.span');
+      expect(span).not.toBeNull();
+      expect(typeof span!.end).toBe('function');
+      service.endSpan(span);
+    });
+
+    it('should gracefully handle import failure in onModuleInit', async () => {
+      const service = createService();
+      // onModuleInit should not throw regardless of import result
+      await expect(service.onModuleInit()).resolves.not.toThrow();
+    });
+  });
 });

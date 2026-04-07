@@ -323,6 +323,139 @@ describe('TenantContextInterceptor', () => {
     });
   });
 
+  describe('Buffer extraction branches', () => {
+    it('should extract tenant from gRPC metadata with Buffer value', (done) => {
+      const grpcInterceptor = new TenantContextInterceptor(context, { transport: 'grpc' });
+      const store = new Map<string, (string | Buffer)[]>();
+      store.set('x-tenant-id', [Buffer.from('tenant-grpc-buf')]);
+      const execCtx = createGrpcContext(store);
+      const handler = {
+        handle: () => new Observable((subscriber) => {
+          expect(context.getTenantId()).toBe('tenant-grpc-buf');
+          subscriber.next('ok');
+          subscriber.complete();
+        }),
+      };
+
+      grpcInterceptor.intercept(execCtx, handler).subscribe({
+        complete: () => done(),
+      });
+    });
+
+    it('should return null for gRPC metadata with empty Buffer', (done) => {
+      const grpcInterceptor = new TenantContextInterceptor(context, { transport: 'grpc' });
+      const store = new Map<string, (string | Buffer)[]>();
+      store.set('x-tenant-id', [Buffer.from('')]);
+      const execCtx = createGrpcContext(store);
+      const handler = {
+        handle: () => new Observable((subscriber) => {
+          expect(context.getTenantId()).toBeNull();
+          subscriber.next('ok');
+          subscriber.complete();
+        }),
+      };
+
+      grpcInterceptor.intercept(execCtx, handler).subscribe({
+        complete: () => done(),
+      });
+    });
+
+    it('should return null for gRPC metadata with empty values array', (done) => {
+      const grpcInterceptor = new TenantContextInterceptor(context, { transport: 'grpc' });
+      const store = new Map<string, (string | Buffer)[]>();
+      // Key exists but has empty array
+      store.set('x-tenant-id', []);
+      const execCtx = createGrpcContext(store);
+      const handler = {
+        handle: () => new Observable((subscriber) => {
+          expect(context.getTenantId()).toBeNull();
+          subscriber.next('ok');
+          subscriber.complete();
+        }),
+      };
+
+      grpcInterceptor.intercept(execCtx, handler).subscribe({
+        complete: () => done(),
+      });
+    });
+
+    it('should return null for Kafka message with empty Buffer header', (done) => {
+      const kafkaInterceptor = new TenantContextInterceptor(context, { transport: 'kafka' });
+      const execCtx = createKafkaContext({ 'X-Tenant-Id': Buffer.from('') });
+      const handler = {
+        handle: () => new Observable((subscriber) => {
+          expect(context.getTenantId()).toBeNull();
+          subscriber.next('ok');
+          subscriber.complete();
+        }),
+      };
+
+      kafkaInterceptor.intercept(execCtx, handler).subscribe({
+        complete: () => done(),
+      });
+    });
+  });
+
+  describe('explicit transport edge cases', () => {
+    it('should pass through when transport is bull but data is null', (done) => {
+      const bullInterceptor = new TenantContextInterceptor(context, { transport: 'bull' });
+      const execCtx = {
+        getType: () => 'rpc',
+        switchToRpc: () => ({
+          getData: () => null,
+          getContext: () => ({}),
+        }),
+        switchToHttp: () => ({}),
+        switchToWs: () => ({}),
+        getClass: () => Object,
+        getHandler: () => Object,
+        getArgs: () => [],
+        getArgByIndex: () => ({}),
+      } as unknown as ExecutionContext;
+
+      const handler = {
+        handle: () => new Observable((subscriber) => {
+          expect(context.getTenantId()).toBeNull();
+          subscriber.next('ok');
+          subscriber.complete();
+        }),
+      };
+
+      bullInterceptor.intercept(execCtx, handler).subscribe({
+        complete: () => done(),
+      });
+    });
+
+    it('should pass through when transport is bull but data is a string', (done) => {
+      const bullInterceptor = new TenantContextInterceptor(context, { transport: 'bull' });
+      const execCtx = {
+        getType: () => 'rpc',
+        switchToRpc: () => ({
+          getData: () => 'plain-string',
+          getContext: () => ({}),
+        }),
+        switchToHttp: () => ({}),
+        switchToWs: () => ({}),
+        getClass: () => Object,
+        getHandler: () => Object,
+        getArgs: () => [],
+        getArgByIndex: () => ({}),
+      } as unknown as ExecutionContext;
+
+      const handler = {
+        handle: () => new Observable((subscriber) => {
+          expect(context.getTenantId()).toBeNull();
+          subscriber.next('ok');
+          subscriber.complete();
+        }),
+      };
+
+      bullInterceptor.intercept(execCtx, handler).subscribe({
+        complete: () => done(),
+      });
+    });
+  });
+
   describe('unknown transport', () => {
     it('should pass through for unknown transport types', (done) => {
       const execCtx = {

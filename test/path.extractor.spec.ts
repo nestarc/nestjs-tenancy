@@ -36,4 +36,16 @@ describe('PathTenantExtractor', () => {
     const req = { path: '/api/123' } as any;
     expect(extractor.extract(req)).toBeNull();
   });
+
+  it('should return null when request.path is undefined', () => {
+    const extractor = new PathTenantExtractor({ pattern: '/api/tenants/:tenantId', paramName: 'tenantId' });
+    const req = { headers: {} } as any;
+    expect(extractor.extract(req)).toBeNull();
+  });
+
+  it('should return null when request.path is empty string', () => {
+    const extractor = new PathTenantExtractor({ pattern: '/api/tenants/:tenantId', paramName: 'tenantId' });
+    const req = { path: '' } as any;
+    expect(extractor.extract(req)).toBeNull();
+  });
 });
