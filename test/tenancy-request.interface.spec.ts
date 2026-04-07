@@ -28,7 +28,8 @@ describe('TenancyRequest type compatibility', () => {
       ip: '127.0.0.1',
       method: 'GET',
     };
-    expect(req.cookies.session).toBe('abc');
+    // Index signature returns `unknown` — use type assertion (recommended pattern)
+    expect((req.cookies as Record<string, string>).session).toBe('abc');
   });
 
   it('should accept minimal response-like objects', () => {

@@ -15,8 +15,8 @@ export interface TenancyRequest {
   path?: string;
   /** Full request URL. */
   url?: string;
-  /** Index signature allows platform-specific properties. */
-  [key: string]: any;
+  /** Index signature for platform-specific properties. Use type assertion to access. */
+  [key: string]: unknown;
 }
 
 /**
@@ -36,6 +36,6 @@ export interface TenancyResponse {
   json?(body: unknown): void;
   /** End the response without a body. */
   end?(): void;
-  /** Index signature for platform-specific properties. */
-  [key: string]: any;
+  /** Index signature for platform-specific properties. Use type assertion to access. */
+  [key: string]: unknown;
 }

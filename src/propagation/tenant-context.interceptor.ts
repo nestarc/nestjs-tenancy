@@ -8,19 +8,17 @@ import { Observable, Subscription } from 'rxjs';
 import { TenancyContext } from '../services/tenancy-context';
 import { DEFAULT_PROPAGATION_HEADER, DEFAULT_BULL_DATA_KEY, DEFAULT_GRPC_METADATA_KEY } from '../tenancy.constants';
 
-export interface TenantContextInterceptorOptions {
-  /** Kafka message header name. Defaults to 'X-Tenant-Id'. */
-  kafkaHeaderName?: string;
-  /** Bull job data key. Defaults to '__tenantId'. */
-  bullDataKey?: string;
-  /** gRPC metadata key. Defaults to 'x-tenant-id'. */
-  grpcMetadataKey?: string;
-  /**
-   * Explicitly specify the transport type instead of using duck-typing detection.
-   * Recommended to avoid false positives from ambiguous RPC context shapes.
-   */
-  transport?: 'kafka' | 'bull' | 'grpc';
-}
+/**
+ * Options for `TenantContextInterceptor`.
+ *
+ * When `transport` is specified, only the matching transport key is accepted.
+ * When `transport` is omitted, all keys are available for duck-typing fallback.
+ */
+export type TenantContextInterceptorOptions =
+  | { transport: 'kafka'; kafkaHeaderName?: string }
+  | { transport: 'bull'; bullDataKey?: string }
+  | { transport: 'grpc'; grpcMetadataKey?: string }
+  | { transport?: undefined; kafkaHeaderName?: string; bullDataKey?: string; grpcMetadataKey?: string };
 
 /**
  * NestJS interceptor that restores tenant context from incoming microservice messages.
@@ -60,10 +58,16 @@ export class TenantContextInterceptor implements NestInterceptor {
     private readonly context: TenancyContext,
     options?: TenantContextInterceptorOptions,
   ) {
-    this.kafkaHeaderName = options?.kafkaHeaderName ?? DEFAULT_PROPAGATION_HEADER;
-    this.bullDataKey = options?.bullDataKey ?? DEFAULT_BULL_DATA_KEY;
-    this.grpcMetadataKey = options?.grpcMetadataKey ?? DEFAULT_GRPC_METADATA_KEY;
-    this.transport = options?.transport;
+    // Cast to access all fields uniformly — the union constrains callers,
+    // but internally we read every key with defaults.
+    const opts = (options ?? {}) as {
+      kafkaHeaderName?: string; bullDataKey?: string;
+      grpcMetadataKey?: string; transport?: 'kafka' | 'bull' | 'grpc';
+    };
+    this.kafkaHeaderName = opts.kafkaHeaderName ?? DEFAULT_PROPAGATION_HEADER;
+    this.bullDataKey = opts.bullDataKey ?? DEFAULT_BULL_DATA_KEY;
+    this.grpcMetadataKey = opts.grpcMetadataKey ?? DEFAULT_GRPC_METADATA_KEY;
+    this.transport = opts.transport;
   }
 
   intercept(executionContext: ExecutionContext, next: CallHandler): Observable<unknown> {

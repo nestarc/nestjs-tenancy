@@ -30,23 +30,29 @@ export interface TenancyModuleOptions {
   onTenantNotFound?: (request: TenancyRequest, response: TenancyResponse) => void | 'skip' | Promise<void | 'skip'>;
 
   /**
-   * Secondary extractor for cross-checking the tenant ID against another source.
-   * Prevents tenant ID forgery by comparing the primary extractor result with this one.
+   * Cross-check configuration for tenant ID forgery prevention.
    *
-   * Common pattern: primary = header, crossCheck = JWT claim.
-   * If both return a value and they differ, the request is rejected or logged
-   * based on `onCrossCheckFailed`.
+   * Compares the primary extractor result with a secondary source.
+   * Common pattern: primary = header, cross-check = JWT claim.
    *
    * If the cross-check extractor returns null (e.g., no JWT present),
    * validation is skipped — allowing unauthenticated endpoints to work normally.
    */
+  crossCheck?: {
+    /** Secondary extractor to validate the tenant ID against. */
+    extractor: TenantExtractor;
+    /**
+     * Behavior on mismatch.
+     * - `'reject'` (default): throws ForbiddenException
+     * - `'log'`: logs a warning and continues with the primary extractor's value
+     */
+    onFailed?: 'reject' | 'log';
+  };
+
+  /** @deprecated Use `crossCheck: { extractor }` instead. Will be removed in v2.0. */
   crossCheckExtractor?: TenantExtractor;
 
-  /**
-   * Behavior when `crossCheckExtractor` detects a mismatch.
-   * - `'reject'` (default): throws ForbiddenException
-   * - `'log'`: logs a warning and continues with the primary extractor's value
-   */
+  /** @deprecated Use `crossCheck: { onFailed }` instead. Will be removed in v2.0. */
   onCrossCheckFailed?: 'reject' | 'log';
 
   /**

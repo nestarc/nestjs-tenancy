@@ -1,6 +1,17 @@
 import { TenancyService } from '../services/tenancy.service';
 import { DEFAULT_DB_SETTING_KEY } from '../tenancy.constants';
 
+/**
+ * Structural type representing a Prisma-like client that supports
+ * interactive transactions. `PrismaClient` satisfies this automatically.
+ */
+export interface PrismaTransactionClient {
+  $transaction<T>(
+    fn: (tx: any) => Promise<T>,
+    options?: Record<string, unknown>,
+  ): Promise<T>;
+}
+
 export interface TenancyTransactionOptions {
   timeout?: number;
   /** PostgreSQL transaction isolation level. */
@@ -21,7 +32,7 @@ export interface TenancyTransactionOptions {
  * @param options - Transaction timeout, isolation level, and DB setting key
  */
 export async function tenancyTransaction<T>(
-  prisma: any,
+  prisma: PrismaTransactionClient,
   tenancyService: TenancyService,
   callback: (tx: any) => Promise<T>,
   options?: TenancyTransactionOptions,

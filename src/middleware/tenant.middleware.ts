@@ -39,8 +39,21 @@ export class TenantMiddleware implements NestMiddleware {
     this.validate =
       options.validateTenantId ?? ((id: string) => UUID_REGEX.test(id));
 
-    this.crossChecker = options.crossCheckExtractor ?? null;
-    this.onCrossCheckFailed = options.onCrossCheckFailed ?? 'reject';
+    if (options.crossCheck) {
+      this.crossChecker = options.crossCheck.extractor;
+      this.onCrossCheckFailed = options.crossCheck.onFailed ?? 'reject';
+    } else if (options.crossCheckExtractor) {
+      this.logger.warn(
+        '`crossCheckExtractor` and `onCrossCheckFailed` are deprecated. ' +
+        'Use `crossCheck: { extractor, onFailed }` instead. ' +
+        'The old fields will be removed in v2.0.',
+      );
+      this.crossChecker = options.crossCheckExtractor;
+      this.onCrossCheckFailed = options.onCrossCheckFailed ?? 'reject';
+    } else {
+      this.crossChecker = null;
+      this.onCrossCheckFailed = 'reject';
+    }
   }
 
   async use(req: TenancyRequest, _res: TenancyResponse, next: (error?: any) => void): Promise<void> {
