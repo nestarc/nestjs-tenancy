@@ -14,6 +14,14 @@ export interface TenancyModuleOptions {
   tenantExtractor: string | TenantExtractor;
   dbSettingKey?: string;
   validateTenantId?: (tenantId: string) => boolean | Promise<boolean>;
+  /**
+   * Called after a tenant ID is successfully extracted and validated.
+   * Runs inside `TenancyContext.run()`, so `getCurrentTenant()` is available.
+   *
+   * Throwing an exception aborts the request — NestJS handles it as a 500
+   * (or whatever your exception filter maps it to). The telemetry span is
+   * always closed via `finally`, so throwing is safe for audit/authorization checks.
+   */
   onTenantResolved?: (tenantId: string, request: TenancyRequest) => void | Promise<void>;
 
   /**
