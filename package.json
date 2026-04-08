@@ -41,12 +41,16 @@
   "keywords": [
     "nestjs",
     "multi-tenancy",
+    "multi-tenant",
     "tenancy",
+    "tenant-isolation",
     "rls",
     "row-level-security",
     "prisma",
     "postgresql",
-    "saas"
+    "saas",
+    "saas-backend",
+    "nestjs-module"
   ],
   "license": "MIT",
   "homepage": "https://nestarc.dev",
