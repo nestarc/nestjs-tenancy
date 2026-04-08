@@ -78,15 +78,15 @@ export class TenantContextInterceptor implements NestInterceptor {
     }
 
     return new Observable((subscriber) => {
-      let innerSub: Subscription;
+      let sub: Subscription | undefined;
       try {
         this.context.run(tenantId, () => {
-          innerSub = next.handle().subscribe(subscriber);
+          sub = next.handle().subscribe(subscriber);
         });
       } catch (err) {
         subscriber.error(err);
       }
-      return () => innerSub?.unsubscribe();
+      return () => sub?.unsubscribe();
     });
   }
 
