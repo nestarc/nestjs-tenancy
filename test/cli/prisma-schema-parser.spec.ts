@@ -91,4 +91,36 @@ model User {
   it('should return empty array for empty schema', () => {
     expect(parseModels('')).toEqual([]);
   });
+
+  it('should handle fields with brace-containing defaults', () => {
+    const schema = `
+model Config {
+  id       Int    @id @default(autoincrement())
+  metadata Json   @default("{}")
+  settings Json   @default("{\\"key\\": \\"value\\"}")
+
+  @@map("configs")
+  @@schema("public")
+}
+`;
+    const models = parseModels(schema);
+    expect(models).toEqual([
+      { modelName: 'Config', tableName: 'configs', schemaName: 'public' },
+    ]);
+  });
+
+  it('should handle dbgenerated defaults with nested parentheses', () => {
+    const schema = `
+model User {
+  id   String @id @default(dbgenerated("gen_random_uuid()"))
+  name String
+
+  @@map("users")
+}
+`;
+    const models = parseModels(schema);
+    expect(models).toEqual([
+      { modelName: 'User', tableName: 'users' },
+    ]);
+  });
 });
