@@ -379,6 +379,23 @@ describe('TenantContextInterceptor', () => {
       });
     });
 
+    it('should return null for Kafka header with non-string non-Buffer value', (done) => {
+      const kafkaInterceptor = new TenantContextInterceptor(context, { transport: 'kafka' });
+      // numeric value — neither string nor Buffer
+      const execCtx = createKafkaContext({ 'X-Tenant-Id': 12345 });
+      const handler = {
+        handle: () => new Observable((subscriber) => {
+          expect(context.getTenantId()).toBeNull();
+          subscriber.next('ok');
+          subscriber.complete();
+        }),
+      };
+
+      kafkaInterceptor.intercept(execCtx, handler).subscribe({
+        complete: () => done(),
+      });
+    });
+
     it('should return null for Kafka message with empty Buffer header', (done) => {
       const kafkaInterceptor = new TenantContextInterceptor(context, { transport: 'kafka' });
       const execCtx = createKafkaContext({ 'X-Tenant-Id': Buffer.from('') });
@@ -391,6 +408,27 @@ describe('TenantContextInterceptor', () => {
       };
 
       kafkaInterceptor.intercept(execCtx, handler).subscribe({
+        complete: () => done(),
+      });
+    });
+  });
+
+  describe('gRPC edge cases', () => {
+    it('should return null for gRPC metadata with non-string non-Buffer value', (done) => {
+      const grpcInterceptor = new TenantContextInterceptor(context, { transport: 'grpc' });
+      const store = new Map<string, (string | Buffer)[]>();
+      // numeric value cast — neither string nor Buffer
+      store.set('x-tenant-id', [42 as any]);
+      const execCtx = createGrpcContext(store);
+      const handler = {
+        handle: () => new Observable((subscriber) => {
+          expect(context.getTenantId()).toBeNull();
+          subscriber.next('ok');
+          subscriber.complete();
+        }),
+      };
+
+      grpcInterceptor.intercept(execCtx, handler).subscribe({
         complete: () => done(),
       });
     });

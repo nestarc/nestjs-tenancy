@@ -112,4 +112,11 @@ describe('SubdomainTenantExtractor', () => {
     const req = { hostname: 'host.internal' } as any;
     expect(extractor.extract(req)).toBeNull();
   });
+
+  it('should return null when psl.parse returns an error', () => {
+    const extractor = new SubdomainTenantExtractor();
+    // Hostname starting with a dash is truthy but psl.parse returns { error: ... }
+    const req = { hostname: '--invalid' } as any;
+    expect(extractor.extract(req)).toBeNull();
+  });
 });

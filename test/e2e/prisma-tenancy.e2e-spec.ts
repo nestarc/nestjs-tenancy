@@ -148,3 +148,119 @@ describe('TenancyContext + RLS Integration', () => {
     expect(service.getCurrentTenant()).toBeNull();
   });
 });
+
+/**
+ * RLS bypass attempt tests.
+ *
+ * These tests verify that RLS policies actively BLOCK unauthorized operations,
+ * not just that isolation works in the happy path.
+ */
+describe('RLS Bypass Attempts', () => {
+  let client: Client;
+  let adminClient: Client;
+
+  const ADMIN_URL =
+    process.env.DATABASE_URL ?? 'postgresql://tenancy:tenancy@localhost:5433/tenancy_test';
+
+  beforeAll(async () => {
+    client = new Client({ connectionString: APP_URL });
+    await client.connect();
+    adminClient = new Client({ connectionString: ADMIN_URL });
+    await adminClient.connect();
+  });
+
+  afterAll(async () => {
+    // Cleanup any rows created by bypass tests
+    await adminClient.query(`DELETE FROM users WHERE email LIKE '%@bypass-test.com'`);
+    await adminClient.end();
+    await client.end();
+  });
+
+  it('should reject INSERT with a different tenant_id than current context', async () => {
+    await client.query('BEGIN');
+    await client.query(`SET LOCAL "app.current_tenant" = '${TENANT_1}'`);
+
+    // Attempt to insert a row with TENANT_2's tenant_id while in TENANT_1 context
+    try {
+      await client.query(
+        `INSERT INTO users (tenant_id, name, email) VALUES ($1, 'Hacker', 'hacker@bypass-test.com')`,
+        [TENANT_2],
+      );
+      await client.query('COMMIT');
+      // If we get here, the insert was not blocked — fail the test
+      fail('INSERT with mismatched tenant_id should have been rejected by RLS');
+    } catch (e: any) {
+      await client.query('ROLLBACK');
+      // RLS policy violation
+      expect(e.message).toMatch(/row-level security/i);
+    }
+  });
+
+  it('should not UPDATE rows belonging to another tenant', async () => {
+    await client.query('BEGIN');
+    await client.query(`SET LOCAL "app.current_tenant" = '${TENANT_1}'`);
+
+    // Attempt to update TENANT_2's rows — RLS should filter them out
+    const result = await client.query(
+      `UPDATE users SET name = 'Hacked' WHERE tenant_id = $1 RETURNING *`,
+      [TENANT_2],
+    );
+    await client.query('COMMIT');
+
+    // UPDATE succeeds but affects 0 rows — TENANT_2's rows are invisible
+    expect(result.rowCount).toBe(0);
+
+    // Verify TENANT_2's data is untouched (via superuser)
+    const check = await adminClient.query(
+      `SELECT name FROM users WHERE tenant_id = $1`,
+      [TENANT_2],
+    );
+    expect(check.rows.every((r: any) => r.name !== 'Hacked')).toBe(true);
+  });
+
+  it('should not DELETE rows belonging to another tenant', async () => {
+    await client.query('BEGIN');
+    await client.query(`SET LOCAL "app.current_tenant" = '${TENANT_1}'`);
+
+    // Attempt to delete TENANT_2's rows
+    const result = await client.query(
+      `DELETE FROM users WHERE tenant_id = $1 RETURNING *`,
+      [TENANT_2],
+    );
+    await client.query('COMMIT');
+
+    // DELETE succeeds but affects 0 rows
+    expect(result.rowCount).toBe(0);
+
+    // Verify TENANT_2's rows still exist
+    const check = await adminClient.query(
+      `SELECT count(*)::int as cnt FROM users WHERE tenant_id = $1`,
+      [TENANT_2],
+    );
+    expect(check.rows[0].cnt).toBe(2);
+  });
+
+  it('should return no rows when tenant_id contains SQL injection attempt', async () => {
+    await client.query('BEGIN');
+    // set_config supports parameterized values — safe from SQL injection
+    await client.query(
+      `SELECT set_config('app.current_tenant', $1, true)`,
+      ["' OR '1'='1"],
+    );
+    const result = await client.query('SELECT * FROM users');
+    await client.query('COMMIT');
+
+    // SQL injection string is treated as a literal tenant_id — matches no rows
+    expect(result.rows).toHaveLength(0);
+  });
+
+  it('should enforce FORCE ROW LEVEL SECURITY on app_user role', async () => {
+    // Without SET LOCAL, current_setting returns empty — RLS blocks all rows
+    const result = await client.query('SELECT * FROM users');
+    expect(result.rows).toHaveLength(0);
+
+    // Verify this is RLS enforcement, not an empty table (superuser sees all)
+    const adminResult = await adminClient.query('SELECT count(*)::int as cnt FROM users');
+    expect(adminResult.rows[0].cnt).toBeGreaterThanOrEqual(5);
+  });
+});

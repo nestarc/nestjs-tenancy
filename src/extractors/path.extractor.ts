@@ -23,7 +23,6 @@ export class PathTenantExtractor implements TenantExtractor {
   }
 
   extract(request: TenancyRequest): string | null {
-    if (this.paramIndex === -1) return null;
     if (!request.path) return null;
 
     const pathSegments = request.path.split('/').filter(Boolean);

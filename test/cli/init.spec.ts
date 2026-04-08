@@ -237,6 +237,80 @@ describe('CLI init', () => {
     expect(fs.existsSync(path.join(tmpDir, 'tenancy.module-setup.ts'))).toBe(false);
   });
 
+  it('should pass shared models to SQL and module setup', async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'schema.prisma'),
+      'model User {\n  id Int @id\n  tenant_id String\n}\n\nmodel Country {\n  id Int @id\n  name String\n}\n',
+    );
+
+    const prompts = require('prompts') as jest.Mock;
+    prompts.mockResolvedValue({
+      extractor: 'Header (X-Tenant-Id)',
+      tenantFormat: 'UUID',
+      dbSettingKey: 'app.current_tenant',
+      autoInject: true,
+      sharedModels: 'Country',
+    });
+
+    await runInit({ cwd: tmpDir });
+
+    const sql = fs.readFileSync(path.join(tmpDir, 'tenancy-setup.sql'), 'utf-8');
+    // Country should NOT have RLS policies (it's shared)
+    expect(sql).not.toContain('ALTER TABLE "Country" ENABLE ROW LEVEL SECURITY');
+    // User should have RLS policies
+    expect(sql).toContain('ALTER TABLE "User" ENABLE ROW LEVEL SECURITY');
+  });
+
+  it('should log multi-schema info when models use @@schema()', async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'schema.prisma'),
+      'model User {\n  id Int @id\n  tenant_id String\n\n  @@schema("tenant")\n}\n',
+    );
+
+    const prompts = require('prompts') as jest.Mock;
+    prompts.mockResolvedValue({
+      extractor: 'Header (X-Tenant-Id)',
+      tenantFormat: 'UUID',
+      dbSettingKey: 'app.current_tenant',
+      autoInject: false,
+      sharedModels: '',
+    });
+
+    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    await runInit({ cwd: tmpDir });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('1 model(s) use @@schema()'),
+    );
+    consoleSpy.mockRestore();
+  });
+
+  it('should print output without writing files in dry-run mode', async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, 'schema.prisma'),
+      'model User {\n  id Int @id\n  tenant_id String\n}\n',
+    );
+
+    const prompts = require('prompts') as jest.Mock;
+    prompts.mockResolvedValue({
+      extractor: 'Header (X-Tenant-Id)',
+      tenantFormat: 'UUID',
+      dbSettingKey: 'app.current_tenant',
+      autoInject: false,
+      sharedModels: '',
+    });
+
+    const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    await runInit({ cwd: tmpDir, dryRun: true });
+
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('--- tenancy-setup.sql ---'));
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('dry run'));
+    // No files should be written
+    expect(fs.existsSync(path.join(tmpDir, 'tenancy-setup.sql'))).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, 'tenancy.module-setup.ts'))).toBe(false);
+    consoleSpy.mockRestore();
+  });
+
   it('should exit with error when prompts package is not available', async () => {
     // Temporarily make require('prompts') throw
     const mockExit = jest.spyOn(process, 'exit').mockImplementation((_code?: string | number | null | undefined) => {
