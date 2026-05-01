@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, RequestMethod } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { TenancyModule } from '../src/tenancy.module';
 import { TenancyService } from '../src/services/tenancy.service';
@@ -7,6 +7,18 @@ import { TenancyModuleOptionsFactory } from '../src/interfaces/tenancy-module-op
 import { TENANCY_MODULE_OPTIONS } from '../src/tenancy.constants';
 
 describe('TenancyModule', () => {
+  it('should register middleware for all routes with a named wildcard', () => {
+    const forRoutes = jest.fn();
+    const apply = jest.fn(() => ({ forRoutes }));
+
+    new TenancyModule().configure({ apply } as any);
+
+    expect(forRoutes).toHaveBeenCalledWith({
+      path: '{*splat}',
+      method: RequestMethod.ALL,
+    });
+  });
+
   describe('forRoot', () => {
     it('should provide TenancyService', async () => {
       const module = await Test.createTestingModule({
@@ -96,17 +108,10 @@ describe('TenancyModule', () => {
       expect(options.tenantExtractor).toBe('x-tenant-id');
     });
 
-    it('should handle empty async options gracefully', async () => {
-      const module = await Test.createTestingModule({
-        imports: [
-          TenancyModule.forRootAsync({
-            useFactory: () => ({ tenantExtractor: 'x-tenant-id' }),
-            inject: [],
-          }),
-        ],
-      }).compile();
-
-      expect(module.get(TenancyService)).toBeDefined();
+    it('should reject empty async options before Nest dependency resolution', () => {
+      expect(() => TenancyModule.forRootAsync({})).toThrow(
+        '[TenancyModule] forRootAsync requires one of: useFactory, useClass, or useExisting',
+      );
     });
   });
 });

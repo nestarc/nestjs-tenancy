@@ -26,34 +26,32 @@ export class TenancyModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(TenantMiddleware)
-      .forRoutes({ path: '(.*)', method: RequestMethod.ALL });
+      .forRoutes({ path: '{*splat}', method: RequestMethod.ALL });
   }
 
   static forRoot(options: TenancyModuleOptions): DynamicModule {
-    return {
-      module: TenancyModule,
-      global: true,
-      providers: [
-        { provide: TENANCY_MODULE_OPTIONS, useValue: options },
-        TenancyContext,
-        TenancyService,
-        TenancyEventService,
-        TenancyTelemetryService,
-        { provide: APP_GUARD, useClass: TenancyGuard },
-      ],
-      exports: [TenancyService, TenancyEventService, TenancyTelemetryService, TENANCY_MODULE_OPTIONS],
-    };
+    return this.buildModule([
+      { provide: TENANCY_MODULE_OPTIONS, useValue: options },
+    ]);
   }
 
   static forRootAsync(options: TenancyModuleAsyncOptions): DynamicModule {
-    const asyncProviders = this.createAsyncProviders(options);
+    return this.buildModule(
+      this.createAsyncProviders(options),
+      options.imports || [],
+    );
+  }
 
+  private static buildModule(
+    optionsProviders: Provider[],
+    imports: TenancyModuleAsyncOptions['imports'] = [],
+  ): DynamicModule {
     return {
       module: TenancyModule,
       global: true,
-      imports: options.imports || [],
+      imports,
       providers: [
-        ...asyncProviders,
+        ...optionsProviders,
         TenancyContext,
         TenancyService,
         TenancyEventService,
@@ -82,7 +80,7 @@ export class TenancyModule implements NestModule {
       return [
         {
           provide: TENANCY_MODULE_OPTIONS,
-          useFactory: async (factory: TenancyModuleOptionsFactory) =>
+          useFactory: (factory: TenancyModuleOptionsFactory) =>
             factory.createTenancyOptions(),
           inject: [useClass],
         },
@@ -94,13 +92,15 @@ export class TenancyModule implements NestModule {
       return [
         {
           provide: TENANCY_MODULE_OPTIONS,
-          useFactory: async (factory: TenancyModuleOptionsFactory) =>
+          useFactory: (factory: TenancyModuleOptionsFactory) =>
             factory.createTenancyOptions(),
           inject: [options.useExisting],
         },
       ];
     }
 
-    return [];
+    throw new Error(
+      '[TenancyModule] forRootAsync requires one of: useFactory, useClass, or useExisting',
+    );
   }
 }
