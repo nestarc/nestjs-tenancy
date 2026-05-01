@@ -37,17 +37,31 @@ One line of code. Automatic tenant isolation.
 
 ## Performance
 
-Measured with PostgreSQL 16, Prisma 6, 1005 rows, 500 iterations on Apple Silicon:
+The benchmark separates extension overhead from row-count and database-role effects:
 
-| Scenario | Avg | P50 | P95 | P99 |
-|----------|-----|-----|-----|-----|
-| Direct query (no extension, 1005 rows) | 4.11ms | 3.32ms | 6.28ms | 9.96ms |
-| **findMany with extension** (tenant-filtered via RLS) | **3.12ms** | **2.63ms** | **5.63ms** | **8.94ms** |
-| **findFirst with extension** (1 row via RLS) | **1.27ms** | **1.23ms** | **1.58ms** | **2.00ms** |
+| Scenario | Purpose |
+|----------|---------|
+| Admin direct `findMany` over all rows | Context only; not used as the extension overhead baseline |
+| Admin tenant-filtered `findMany` with `WHERE tenant_id` | Same returned row count with RLS bypassed |
+| `app_user` manual RLS transaction | `set_config` + query, no extension |
+| `app_user` tenancy extension `findMany` | Same role, RLS policy, and returned row count as the manual RLS transaction |
+| `app_user` tenancy extension `findFirst` | Single-row reference path |
 
-Extension overhead: **-24%** (faster with RLS). The batch transaction overhead (`set_config` + query) is negligible — RLS reduces the returned row count, which often makes queries faster than unfiltered equivalents.
+The headline number is `extension findMany - manual RLS transaction`, not extension vs unfiltered admin query. The script prints row counts, Node/PostgreSQL/Prisma versions, and p50/p95/p99 timings so results can be compared across environments.
 
-> Reproduce: `docker compose up -d && npx ts-node benchmarks/rls-overhead.ts`
+Example result from Apple M1 Pro, Node v24.11.1, PostgreSQL 16.13, Prisma Client 6.19.2, 1005 total rows, 500 measured iterations:
+
+| Scenario | Rows | Avg | P50 | P95 | P99 |
+|----------|------|-----|-----|-----|-----|
+| Admin direct `findMany` (all rows, no RLS) | 1005 | 3.983ms | 3.369ms | 5.444ms | 6.992ms |
+| Admin tenant-filtered `findMany` (`WHERE tenant_id`, no RLS) | 402 | 2.747ms | 2.736ms | 3.612ms | 4.686ms |
+| `app_user` manual RLS transaction (`set_config` + `findMany`) | 402 | 2.846ms | 2.614ms | 4.154ms | 5.177ms |
+| `app_user` tenancy extension `findMany` | 402 | 2.961ms | 2.766ms | 4.281ms | 4.800ms |
+| `app_user` tenancy extension `findFirst` | 1 | 1.217ms | 1.192ms | 1.522ms | 1.777ms |
+
+Measured extension overhead: **+0.115ms avg (+4.0%)**, **+0.127ms p95** compared with the manual RLS transaction.
+
+> Reproduce: `docker compose up -d --wait && npm run bench`
 
 ## Prerequisites
 
