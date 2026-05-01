@@ -1,6 +1,10 @@
 import { TenancyContext } from '../src/services/tenancy-context';
 import { TenancyService } from '../src/services/tenancy.service';
-import { tenancyTransaction } from '../src/prisma/tenancy-transaction';
+import {
+  tenancyTransaction,
+  PrismaTransactionClient,
+  PrismaTransactionContext,
+} from '../src/prisma/tenancy-transaction';
 
 describe('tenancyTransaction', () => {
   let context: TenancyContext;
@@ -158,6 +162,40 @@ describe('tenancyTransaction', () => {
               throw new Error('callback failed');
             }),
           ).rejects.toThrow('callback failed');
+          resolve();
+        } catch (e) { reject(e); }
+      });
+    });
+  });
+
+  it('should preserve generic transaction client type in callback', async () => {
+    interface MockTx extends PrismaTransactionContext {
+      user: {
+        findMany(): Promise<string[]>;
+      };
+    }
+
+    const mockTx: MockTx = {
+      $executeRaw: jest.fn().mockResolvedValue(1),
+      user: {
+        findMany: jest.fn().mockResolvedValue(['user-a']),
+      },
+    };
+    const mockPrisma: PrismaTransactionClient<MockTx> = {
+      $transaction: async (cb) => cb(mockTx),
+    };
+
+    await new Promise<void>((resolve, reject) => {
+      context.run('tenant-123', async () => {
+        try {
+          const result = await tenancyTransaction(
+            mockPrisma,
+            service,
+            async (tx) => tx.user.findMany(),
+          );
+
+          expect(result).toEqual(['user-a']);
+          expect(mockTx.user.findMany).toHaveBeenCalled();
           resolve();
         } catch (e) { reject(e); }
       });

@@ -3,6 +3,31 @@ import { TenancyService } from '../services/tenancy.service';
 import { TenancyContextRequiredError } from '../errors/tenancy-context-required.error';
 import { DEFAULT_DB_SETTING_KEY } from '../tenancy.constants';
 
+type PrismaRawExecutor = (
+  strings: TemplateStringsArray,
+  ...values: unknown[]
+) => Promise<unknown>;
+
+interface PrismaInternalClient {
+  $extends(extension: unknown): unknown;
+  $transaction<T extends readonly unknown[]>(queries: T): Promise<unknown[]>;
+  $executeRaw: PrismaRawExecutor;
+  _createItxClient?: (txInfo: unknown) => { $executeRaw: PrismaRawExecutor };
+}
+
+interface PrismaOperationContext {
+  model: string;
+  operation: string;
+  args: Record<string, any>;
+  query: (args: Record<string, any>) => Promise<unknown>;
+  __internalParams?: {
+    transaction?: {
+      kind?: string;
+      [key: string]: unknown;
+    };
+  };
+}
+
 export interface PrismaTenancyExtensionOptions {
   dbSettingKey?: string;
   autoInjectTenantId?: boolean;
@@ -83,7 +108,7 @@ export function createPrismaTenancyExtension(
     // Prisma's defineExtension callback receives a Client type that
     // doesn't fully expose $executeRaw/$transaction in its generic form.
     // Cast to access these methods which are available at runtime.
-    const baseClient = prisma as any;
+    const baseClient = prisma as unknown as PrismaInternalClient;
 
     if (itxSupport && typeof baseClient._createItxClient !== 'function') {
       throw new Error(
@@ -101,14 +126,8 @@ export function createPrismaTenancyExtension(
             operation,
             args,
             query,
-            ...rest
-          }: {
-            model: string;
-            operation: string;
-            args: any;
-            query: (args: any) => Promise<any>;
-            [key: string]: any;
-          }) {
+            __internalParams,
+          }: PrismaOperationContext) {
             const tenantId = tenancyService.getCurrentTenant();
 
             if (sharedModels.has(model)) {
@@ -142,16 +161,17 @@ export function createPrismaTenancyExtension(
                   args = {
                     ...args,
                     create: { ...args.create, [tenantIdField]: tenantId },
+                    update: stripTenantField(args.update, tenantIdField),
                   };
                   break;
               }
             }
 
             if (itxSupport) {
-              const txInfo = rest?.__internalParams?.transaction;
+              const txInfo = __internalParams?.transaction;
 
               if (txInfo?.kind === 'itx') {
-                const itxClient = baseClient._createItxClient(txInfo);
+                const itxClient = baseClient._createItxClient!(txInfo);
                 await itxClient.$executeRaw`SELECT set_config(${settingKey}, ${tenantId}, TRUE)`;
                 return query(args);
               }
@@ -168,4 +188,17 @@ export function createPrismaTenancyExtension(
       },
     });
   });
+}
+
+function stripTenantField(
+  update: Record<string, any> | undefined,
+  tenantIdField: string,
+): Record<string, any> | undefined {
+  if (!update || typeof update !== 'object' || Array.isArray(update)) {
+    return update;
+  }
+
+  const safeUpdate = { ...update };
+  delete safeUpdate[tenantIdField];
+  return safeUpdate;
 }

@@ -451,6 +451,40 @@ describe('createPrismaTenancyExtension', () => {
       });
     });
 
+    it('should strip tenant_id from upsert update data', async () => {
+      const { mockPrisma, mockTransaction } = buildMockPrisma();
+      mockTransaction.mockResolvedValue([1, { id: 1 }]);
+
+      const handler = getHandlerWithAutoInject(mockPrisma);
+      const mockQuery = jest.fn().mockReturnValue(Promise.resolve({ id: 1 }));
+
+      await new Promise<void>((resolve, reject) => {
+        context.run('tenant-id', async () => {
+          try {
+            await handler({
+              model: 'Order',
+              operation: 'upsert',
+              args: {
+                where: { id: 1 },
+                create: { name: 'New Order', tenant_id: 'attacker-tenant' },
+                update: { name: 'Updated Order', tenant_id: 'attacker-tenant' },
+              },
+              query: mockQuery,
+            });
+
+            expect(mockQuery).toHaveBeenCalledWith({
+              where: { id: 1 },
+              create: { name: 'New Order', tenant_id: 'tenant-id' },
+              update: { name: 'Updated Order' },
+            });
+            resolve();
+          } catch (e) {
+            reject(e);
+          }
+        });
+      });
+    });
+
     it('should NOT inject on update operations', async () => {
       const { mockPrisma, mockTransaction } = buildMockPrisma();
       mockTransaction.mockResolvedValue([1, { id: 1 }]);

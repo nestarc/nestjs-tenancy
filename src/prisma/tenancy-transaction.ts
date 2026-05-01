@@ -2,12 +2,22 @@ import { TenancyService } from '../services/tenancy.service';
 import { DEFAULT_DB_SETTING_KEY } from '../tenancy.constants';
 
 /**
+ * Minimal transaction client shape required by `tenancyTransaction`.
+ */
+export interface PrismaTransactionContext {
+  $executeRaw(
+    strings: TemplateStringsArray,
+    ...values: unknown[]
+  ): Promise<unknown>;
+}
+
+/**
  * Structural type representing a Prisma-like client that supports
  * interactive transactions. `PrismaClient` satisfies this automatically.
  */
-export interface PrismaTransactionClient {
+export interface PrismaTransactionClient<TTx extends PrismaTransactionContext = any> {
   $transaction<T>(
-    fn: (tx: any) => Promise<T>,
+    fn: (tx: TTx) => Promise<T>,
     options?: Record<string, unknown>,
   ): Promise<T>;
 }
@@ -31,17 +41,20 @@ export interface TenancyTransactionOptions {
  * @param callback - Function receiving the transaction client
  * @param options - Transaction timeout, isolation level, and DB setting key
  */
-export async function tenancyTransaction<T>(
-  prisma: PrismaTransactionClient,
+export async function tenancyTransaction<
+  T,
+  TTx extends PrismaTransactionContext = any,
+>(
+  prisma: PrismaTransactionClient<TTx>,
   tenancyService: TenancyService,
-  callback: (tx: any) => Promise<T>,
+  callback: (tx: TTx) => Promise<T>,
   options?: TenancyTransactionOptions,
 ): Promise<T> {
   const tenantId = tenancyService.getCurrentTenantOrThrow();
   const settingKey = options?.dbSettingKey ?? DEFAULT_DB_SETTING_KEY;
 
   return prisma.$transaction(
-    async (tx: any) => {
+    async (tx: TTx) => {
       await tx.$executeRaw`SELECT set_config(${settingKey}, ${tenantId}, TRUE)`;
       return callback(tx);
     },

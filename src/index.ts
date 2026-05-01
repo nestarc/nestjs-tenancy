@@ -31,7 +31,11 @@ export type { PathExtractorOptions } from './extractors/path.extractor';
 export { createPrismaTenancyExtension } from './prisma/prisma-tenancy.extension';
 export type { PrismaTenancyExtensionOptions } from './prisma/prisma-tenancy.extension';
 export { tenancyTransaction } from './prisma/tenancy-transaction';
-export type { TenancyTransactionOptions, PrismaTransactionClient } from './prisma/tenancy-transaction';
+export type {
+  TenancyTransactionOptions,
+  PrismaTransactionClient,
+  PrismaTransactionContext,
+} from './prisma/tenancy-transaction';
 
 // Errors
 export { TenantContextMissingError } from './errors/tenant-context-missing.error';
