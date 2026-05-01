@@ -104,7 +104,7 @@ export function createPrismaTenancyExtension(
 
   const itxSupport = options?.interactiveTransactionSupport === true;
 
-  return Prisma.defineExtension((prisma) => {
+  return Prisma.defineExtension((prisma): any => {
     // Prisma's defineExtension callback receives a Client type that
     // doesn't fully expose $executeRaw/$transaction in its generic form.
     // Cast to access these methods which are available at runtime.

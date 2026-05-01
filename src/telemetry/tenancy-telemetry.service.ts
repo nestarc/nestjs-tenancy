@@ -100,9 +100,10 @@ export class TenancyTelemetryService implements OnModuleInit {
     if (
       result &&
       typeof result === 'object' &&
-      typeof (result as Promise<unknown>).finally === 'function'
+      typeof (result as unknown as Promise<unknown>).finally === 'function'
     ) {
-      return (result as Promise<unknown>).finally(() => this.endSpan(span)) as T;
+      return (result as unknown as Promise<unknown>)
+        .finally(() => this.endSpan(span)) as unknown as T;
     }
 
     this.endSpan(span);
