@@ -50,6 +50,29 @@ describe('BullTenantPropagator', () => {
         expect(propagator.inject(data)).toBe(data);
       });
     });
+
+    it('should throw when job data already has a different tenant ID', (done) => {
+      const propagator = new BullTenantPropagator(context);
+      context.run('tenant-abc', () => {
+        expect(() =>
+          propagator.inject({ orderId: '123', __tenantId: 'tenant-other' }),
+        ).toThrow(
+          '[BullTenantPropagator] Job data already contains "__tenantId" with a different tenant ID',
+        );
+        done();
+      });
+    });
+
+    it('should allow job data that already has the same tenant ID', (done) => {
+      const propagator = new BullTenantPropagator(context);
+      context.run('tenant-abc', () => {
+        expect(propagator.inject({ orderId: '123', __tenantId: 'tenant-abc' })).toEqual({
+          orderId: '123',
+          __tenantId: 'tenant-abc',
+        });
+        done();
+      });
+    });
   });
 
   describe('extract', () => {

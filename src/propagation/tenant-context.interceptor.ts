@@ -130,7 +130,7 @@ export class TenantContextInterceptor implements NestInterceptor {
       return this.extractFromKafkaContext(ctx);
     }
 
-    // gRPC: context has get()/set() methods (Metadata-like)
+    // gRPC: context has get()/set() methods; extraction validates array values.
     if (typeof ctx?.get === 'function' && typeof ctx?.set === 'function') {
       return this.extractFromGrpcMetadata(ctx);
     }
@@ -154,9 +154,9 @@ export class TenantContextInterceptor implements NestInterceptor {
     return null;
   }
 
-  private extractFromGrpcMetadata(metadata: { get(key: string): (string | Buffer)[] }): string | null {
+  private extractFromGrpcMetadata(metadata: { get(key: string): unknown }): string | null {
     const values = metadata.get(this.grpcMetadataKey);
-    if (!values || values.length === 0) return null;
+    if (!Array.isArray(values) || values.length === 0) return null;
     const first = values[0];
     if (typeof first === 'string' && first.length > 0) return first;
     if (Buffer.isBuffer(first)) {

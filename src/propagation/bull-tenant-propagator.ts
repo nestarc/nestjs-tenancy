@@ -42,6 +42,11 @@ export class BullTenantPropagator
   inject(jobData: Record<string, unknown>): Record<string, unknown> {
     const tenantId = this.context.getTenantId();
     if (!tenantId) return jobData;
+    if (this.dataKey in jobData && jobData[this.dataKey] !== tenantId) {
+      throw new Error(
+        `[BullTenantPropagator] Job data already contains "${this.dataKey}" with a different tenant ID`,
+      );
+    }
     return { ...jobData, [this.dataKey]: tenantId };
   }
 

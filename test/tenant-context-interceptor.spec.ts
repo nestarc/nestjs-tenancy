@@ -290,6 +290,38 @@ describe('TenantContextInterceptor', () => {
   });
 
   describe('duck-typing false positive prevention', () => {
+    it('should NOT treat scalar get/set RPC context as gRPC metadata', (done) => {
+      const execCtx = {
+        getType: () => 'rpc',
+        switchToRpc: () => ({
+          getData: () => ({ field: 'value' }),
+          getContext: () => ({
+            get: () => 'tenant-url',
+            set: () => undefined,
+          }),
+        }),
+        switchToHttp: () => ({}),
+        switchToWs: () => ({}),
+        getClass: () => Object,
+        getHandler: () => Object,
+        getArgs: () => [],
+        getArgByIndex: () => ({}),
+      } as unknown as ExecutionContext;
+
+      const handler = {
+        handle: () => new Observable((subscriber) => {
+          expect(context.getTenantId()).toBeNull();
+          subscriber.next('result');
+          subscriber.complete();
+        }),
+      };
+
+      interceptor.intercept(execCtx, handler).subscribe({
+        next: (val) => expect(val).toBe('result'),
+        complete: () => done(),
+      });
+    });
+
     it('should NOT match Bull when data has no tenant key', (done) => {
       // Arbitrary RPC payload without __tenantId — should NOT be treated as Bull
       const execCtx = createBullContext({ orderId: '123', amount: 100 });
