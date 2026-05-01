@@ -1,5 +1,5 @@
-import { Type } from '@nestjs/common';
-import { ModuleMetadata } from '@nestjs/common/interfaces';
+import type { FactoryProvider, Type } from '@nestjs/common';
+import type { ModuleMetadata } from '@nestjs/common/interfaces';
 import { TenancyRequest, TenancyResponse } from './tenancy-request.interface';
 import { TenantExtractor } from './tenant-extractor.interface';
 
@@ -11,6 +11,19 @@ export interface TelemetryOptions {
 }
 
 export interface TenancyModuleOptions {
+  /**
+   * Tenant extraction strategy.
+   *
+   * A string is a shortcut for `HeaderTenantExtractor` and is interpreted as
+   * the HTTP header name. Use a `TenantExtractor` instance for non-header
+   * strategies such as subdomain, path, JWT claim, or composite extraction.
+   *
+   * @example
+   * ```typescript
+   * tenantExtractor: 'X-Tenant-Id'
+   * tenantExtractor: new SubdomainTenantExtractor()
+   * ```
+   */
   tenantExtractor: string | TenantExtractor;
   dbSettingKey?: string;
   validateTenantId?: (tenantId: string) => boolean | Promise<boolean>;
@@ -89,7 +102,7 @@ export interface TenancyModuleOptionsFactory {
 
 export interface TenancyModuleAsyncOptions
   extends Pick<ModuleMetadata, 'imports'> {
-  inject?: any[];
+  inject?: FactoryProvider['inject'];
   useFactory?: (
     ...args: any[]
   ) => TenancyModuleOptions | Promise<TenancyModuleOptions>;
