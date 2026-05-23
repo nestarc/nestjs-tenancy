@@ -264,9 +264,27 @@ describe('TenantMiddleware', () => {
       return { extract: () => value };
     }
 
+    it('should reject removed flat cross-check options at compile time', () => {
+      const extractor = staticExtractor(VALID_UUID);
+
+      const crossCheckExtractorOptions: TenancyModuleOptions = {
+        tenantExtractor: 'x-tenant-id',
+        // @ts-expect-error crossCheckExtractor was removed in v0.12.0
+        crossCheckExtractor: extractor,
+      };
+      expect(crossCheckExtractorOptions.tenantExtractor).toBe('x-tenant-id');
+
+      const onCrossCheckFailedOptions: TenancyModuleOptions = {
+        tenantExtractor: 'x-tenant-id',
+        // @ts-expect-error onCrossCheckFailed was removed in v0.12.0
+        onCrossCheckFailed: 'reject',
+      };
+      expect(onCrossCheckFailedOptions.tenantExtractor).toBe('x-tenant-id');
+    });
+
     it('should pass when cross-check matches primary extractor', (done) => {
       const mw = createMiddleware({
-        crossCheckExtractor: staticExtractor(VALID_UUID),
+        crossCheck: { extractor: staticExtractor(VALID_UUID) },
       });
       mw.use(mockReq({ 'x-tenant-id': VALID_UUID }), mockRes(), () => {
         expect(new TenancyContext().getTenantId()).toBe(VALID_UUID);
@@ -276,8 +294,7 @@ describe('TenantMiddleware', () => {
 
     it('should throw ForbiddenException on mismatch (reject mode)', async () => {
       const mw = createMiddleware({
-        crossCheckExtractor: staticExtractor(OTHER_UUID),
-        onCrossCheckFailed: 'reject',
+        crossCheck: { extractor: staticExtractor(OTHER_UUID), onFailed: 'reject' },
       });
       await expect(
         new Promise((resolve, reject) => {
@@ -288,8 +305,7 @@ describe('TenantMiddleware', () => {
 
     it('should log warning and continue on mismatch (log mode)', (done) => {
       const mw = createMiddleware({
-        crossCheckExtractor: staticExtractor(OTHER_UUID),
-        onCrossCheckFailed: 'log',
+        crossCheck: { extractor: staticExtractor(OTHER_UUID), onFailed: 'log' },
       });
       mw.use(mockReq({ 'x-tenant-id': VALID_UUID }), mockRes(), () => {
         // Continued with primary extractor value despite mismatch
@@ -300,8 +316,7 @@ describe('TenantMiddleware', () => {
 
     it('should skip validation when cross-check returns null', (done) => {
       const mw = createMiddleware({
-        crossCheckExtractor: staticExtractor(null),
-        onCrossCheckFailed: 'reject',
+        crossCheck: { extractor: staticExtractor(null), onFailed: 'reject' },
       });
       mw.use(mockReq({ 'x-tenant-id': VALID_UUID }), mockRes(), () => {
         expect(new TenancyContext().getTenantId()).toBe(VALID_UUID);
@@ -311,8 +326,7 @@ describe('TenantMiddleware', () => {
 
     it('should default to reject mode', async () => {
       const mw = createMiddleware({
-        crossCheckExtractor: staticExtractor(OTHER_UUID),
-        // onCrossCheckFailed not set — defaults to 'reject'
+        crossCheck: { extractor: staticExtractor(OTHER_UUID) },
       });
       await expect(
         new Promise((resolve, reject) => {
@@ -324,7 +338,7 @@ describe('TenantMiddleware', () => {
     it('should emit CROSS_CHECK_FAILED event on mismatch', async () => {
       const eventService = createMockEventService();
       const mw = createMiddleware(
-        { crossCheckExtractor: staticExtractor(OTHER_UUID) },
+        { crossCheck: { extractor: staticExtractor(OTHER_UUID) } },
         eventService,
       );
       const req = mockReq({ 'x-tenant-id': VALID_UUID });
@@ -456,13 +470,6 @@ describe('TenantMiddleware', () => {
       });
     });
 
-    it('should emit deprecation warning for old crossCheckExtractor format', () => {
-      const mw = createMiddleware({
-        crossCheckExtractor: staticExtractor(VALID_UUID),
-      });
-      // Warning is emitted in constructor — just verify middleware was created
-      expect(mw).toBeDefined();
-    });
   });
 
   describe('Extractor error propagation', () => {

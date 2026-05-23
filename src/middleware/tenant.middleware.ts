@@ -44,15 +44,6 @@ export class TenantMiddleware implements NestMiddleware {
       this.crossChecker = options.crossCheck.extractor;
       this.onCrossCheckFailed = options.crossCheck.onFailed ?? 'reject';
       this.crossCheckRequired = options.crossCheck.required ?? false;
-    } else if (options.crossCheckExtractor) {
-      this.logger.warn(
-        '`crossCheckExtractor` and `onCrossCheckFailed` are deprecated. ' +
-          'Use `crossCheck: { extractor, onFailed }` instead. ' +
-          'The old fields are planned for removal in v0.12.0.',
-      );
-      this.crossChecker = options.crossCheckExtractor;
-      this.onCrossCheckFailed = options.onCrossCheckFailed ?? 'reject';
-      this.crossCheckRequired = false;
     } else {
       this.crossChecker = null;
       this.onCrossCheckFailed = 'reject';

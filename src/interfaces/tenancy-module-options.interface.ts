@@ -81,12 +81,6 @@ export interface TenancyModuleOptions {
     required?: boolean;
   };
 
-  /** @deprecated Since v0.10.0. Use `crossCheck: { extractor }` instead. Planned removal in v0.12.0. */
-  crossCheckExtractor?: TenantExtractor;
-
-  /** @deprecated Since v0.10.0. Use `crossCheck: { onFailed }` instead. Planned removal in v0.12.0. */
-  onCrossCheckFailed?: 'reject' | 'log';
-
   /**
    * OpenTelemetry integration. Automatically adds tenant.id to active spans.
    * Silently ignored if `@opentelemetry/api` is not installed.
