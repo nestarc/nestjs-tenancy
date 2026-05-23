@@ -192,6 +192,8 @@ await tenancyTransaction(prisma, tenancyService, async (tx) => {
 });
 ```
 
+> **Compatibility note:** `interactiveTransactionSupport: true` relies on Prisma internal APIs. Prefer `tenancyTransaction()` for new code because it uses public Prisma APIs. Use transparent support only when you accept Prisma-version compatibility risk and have E2E coverage for your Prisma version.
+
 **Option 2: Transparent mode**
 
 Sets RLS context automatically inside interactive transactions. Validates Prisma compatibility at startup.
@@ -203,8 +205,6 @@ const prisma = basePrisma.$extends(
   })
 );
 ```
-
-> `interactiveTransactionSupport` relies on Prisma internal APIs. If your Prisma version is incompatible, extension creation throws immediately with a clear error message. Use `tenancyTransaction()` as a fallback.
 
 ### 4. Use it
 
@@ -294,7 +294,7 @@ export class UsersController {
 
 Skip the `TenancyGuard` tenant-required check on specific routes (e.g., health checks, public endpoints).
 
-> **Important:** `@BypassTenancy()` only bypasses the guard — it does **not** clear the tenant context. If the request contains a tenant header, `TenantMiddleware` still sets the context, so `getCurrentTenant()` may return a value and Prisma queries will still be RLS-filtered. To explicitly run without tenant context, use `withoutTenant()`.
+> **Important:** `@BypassTenancy()` only bypasses the guard's tenant-required check. It does **not** clear tenant context. If a request includes a valid tenant header, downstream services and Prisma queries can still run inside that tenant context. Use `tenancyService.withoutTenant()` to explicitly run with no tenant context.
 
 ```typescript
 import { Controller, Get } from '@nestjs/common';
@@ -332,10 +332,13 @@ To actually query across all tenants, you need one of:
 1. **A superuser/RLS-exempt database connection** — use a separate `PrismaClient` with admin credentials that bypasses RLS:
 
 ```typescript
-// adminPrisma uses a superuser connection — not subject to RLS
-const allUsers = await tenancyService.withoutTenant(async () => {
-  return adminPrisma.user.findMany(); // Returns ALL tenants' data
-});
+@BypassTenancy()
+@Get('/admin/users')
+async listAllUsers() {
+  return this.tenancyService.withoutTenant(async () => {
+    return this.adminPrisma.user.findMany();
+  });
+}
 ```
 
 2. **A PostgreSQL bypass policy** — add a policy that allows access when a bypass flag is set:
@@ -401,7 +404,7 @@ TenancyModule.forRoot({
 // Authorization: Bearer eyJ... → payload.org_id
 ```
 
-> **Security:** This extractor does **not** verify the JWT signature. You must ensure JWT signature verification happens at the **middleware level** — not in a NestJS Guard.
+> **Security:** `JwtClaimTenantExtractor` decodes JWT claims and checks time-based claims such as `exp` / `nbf`, but it does **not** verify the JWT signature. Verify the token before tenant extraction, or validate the resolved tenant against authenticated user state in `onTenantResolved`.
 >
 > NestJS execution order is: **Middleware → Guards → Interceptors → Pipes**. Since `TenantMiddleware` runs at the middleware stage, a NestJS Guard (e.g., `@nestjs/passport` `AuthGuard`) runs *after* the tenant is already resolved and cannot protect it.
 >
@@ -638,7 +641,25 @@ TenancyModule.forRoot({
 
 If the cross-check extractor returns `null` (e.g., no JWT present), validation is skipped by default — unauthenticated endpoints work normally. Set `required: true` to reject requests when the cross-check source is missing, enforcing that every request must have a verifiable secondary source. On mismatch, `tenant.cross_check_failed` event is emitted.
 
-> **Deprecated format:** The flat `crossCheckExtractor` / `onCrossCheckFailed` fields still work but emit a deprecation warning. Deprecated since v0.10.0; planned removal in v0.12.0.
+> **v0.12.0 migration:** The flat `crossCheckExtractor` / `onCrossCheckFailed` fields were removed. Use `crossCheck: { extractor, onFailed, required }`.
+
+```typescript
+// Before v0.12.0
+TenancyModule.forRoot({
+  tenantExtractor: 'X-Tenant-Id',
+  crossCheckExtractor: new JwtClaimTenantExtractor({ claimKey: 'org_id' }),
+  onCrossCheckFailed: 'reject',
+});
+
+// v0.12.0+
+TenancyModule.forRoot({
+  tenantExtractor: 'X-Tenant-Id',
+  crossCheck: {
+    extractor: new JwtClaimTenantExtractor({ claimKey: 'org_id' }),
+    onFailed: 'reject',
+  },
+});
+```
 
 ### Deprecation Policy
 

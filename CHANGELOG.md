@@ -6,6 +6,30 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed (Breaking)
+
+- Removed deprecated flat cross-check module options: `crossCheckExtractor` and `onCrossCheckFailed`. Use `crossCheck: { extractor, onFailed, required }`.
+
+### Changed
+
+- Added package `engines.node` metadata matching the documented Node.js >= 18 support.
+- Moved `prompts` to regular dependencies so the documented interactive CLI works in normal installs.
+- Made CLI shebang injection idempotent.
+
+### Fixed
+
+- Local `npm run test:e2e` now provides default `DATABASE_URL` and `APP_DATABASE_URL` values before Prisma generation while preserving caller-provided environment variables.
+
+### Tests
+
+- Added public API smoke coverage for root and testing entrypoints.
+- Added regression coverage for E2E runner defaults and CLI shebang idempotency.
+
+### Documentation
+
+- Added v0.12.0 cross-check migration guidance.
+- Clarified JWT claim extraction, `@BypassTenancy()` semantics, `withoutTenant()`, and interactive transaction recommendations.
+
 ## [0.11.0] - 2026-05-01
 
 ### Added
