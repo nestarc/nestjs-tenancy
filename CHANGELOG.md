@@ -6,6 +6,8 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-05-23
+
 ### Changed (Breaking)
 
 - Removed deprecated flat cross-check module options: `crossCheckExtractor` and `onCrossCheckFailed`. Use `crossCheck: { extractor, onFailed, required }`.
