@@ -172,6 +172,16 @@ Prisma 전용이라는 한계를 벗어나면 사용자 풀이 넓어진다.
 
 ---
 
+## Phase 4.8: 캐시 안전성 (v0.13.0) ✅ 완료
+
+### 4.8-1. Tenant-aware response cache ✅
+
+- `TenantCacheInterceptor` — 응답 캐시 키를 기본적으로 `tenant:{tenantId}:{baseCacheKey}` 형태로 분리
+- `@SharedTenantCache()` — 공개/공유 응답 캐시에 대한 명시적 opt-in
+- `@nestarc/tenancy/cache` 서브패스 — optional cache peer dependency를 root entrypoint에서 분리
+
+---
+
 ## Phase 5: 프로덕션 신뢰 (v1.0.0)
 
 ### 5-1. 보안 강화
@@ -206,6 +216,7 @@ Prisma 전용이라는 한계를 벗어나면 사용자 풀이 넓어진다.
 ✅ v0.7.0 (완료)    위조 방지 + OpenTelemetry
 ✅ v0.8.0 (완료)    빌드 안정화 + 회귀 테스트
 ✅ v0.9.0 (완료)    Express 타입 분리 + 프레임워크 중립
+✅ v0.13.0 (완료)   Tenant-aware cache interceptor + shared cache opt-in
 → v1.0.0           보안 강화 + 운영 도구 + 문서 사이트 + 다중 DB + ORM 어댑터
 ```
 

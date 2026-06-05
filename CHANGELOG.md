@@ -6,6 +6,23 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.13.0] - Unreleased
+
+### Added
+
+- **`TenantCacheInterceptor`** — Nest cache interceptor variant that scopes response cache keys by the current tenant.
+- **`@SharedTenantCache()`** — route/class decorator for intentionally shared cache entries.
+- **`@nestarc/tenancy/cache` subpath** — dedicated cache runtime API export for `TenantCacheInterceptor`, `SharedTenantCache`, and cache options symbols.
+- **Optional cache peer metadata** — `@nestjs/cache-manager` and `cache-manager` are declared as optional peers for applications that enable response caching.
+
+### Changed
+
+- Kept the root `@nestarc/tenancy` entrypoint free of eager cache runtime imports; cache APIs must be imported from `@nestarc/tenancy/cache`.
+
+### Security
+
+- Tenant-aware cache keys prevent Redis/in-memory response cache key collisions across tenants, but they do not authorize access. Shared cache opt-in only changes cache key generation.
+
 ## [0.12.0] - 2026-05-23
 
 ### Changed (Breaking)
