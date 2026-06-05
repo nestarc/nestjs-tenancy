@@ -1,15 +1,26 @@
 import 'reflect-metadata';
-import { ExecutionContext } from '@nestjs/common';
+import {
+  Controller,
+  ExecutionContext,
+  Get,
+  INestApplication,
+  UseInterceptors,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { CacheKey, CacheModule } from '@nestjs/cache-manager';
+import { CacheKey, CacheModule, CacheTTL } from '@nestjs/cache-manager';
 import { Test } from '@nestjs/testing';
 import { createHash } from 'crypto';
+import request from 'supertest';
 import {
   TENANT_CACHE_INTERCEPTOR_OPTIONS,
   TenantCacheInterceptor,
   TenantCacheInterceptorOptions,
 } from '../src/cache';
+import { BypassTenancy } from '../src/decorators/bypass-tenancy.decorator';
+import { SharedTenantCache } from '../src/decorators/shared-tenant-cache.decorator';
+import { HeaderTenantExtractor } from '../src/extractors/header.extractor';
 import { TenancyContext } from '../src/services/tenancy-context';
+import { TenancyModule } from '../src/tenancy.module';
 import { SHARED_TENANT_CACHE_KEY } from '../src/tenancy.constants';
 
 type BaseCacheKey =
@@ -268,5 +279,109 @@ describe('TenantCacheInterceptor', () => {
     } finally {
       await moduleRef.close();
     }
+  });
+});
+
+describe('TenantCacheInterceptor integration', () => {
+  let app: INestApplication;
+  let appUrl: string;
+  let tenantHitCount = 0;
+  let sharedHitCount = 0;
+  let publicHitCount = 0;
+
+  @Controller()
+  class TestController {
+    @UseInterceptors(TenantCacheInterceptor)
+    @CacheKey('products')
+    @CacheTTL(60)
+    @Get('/products')
+    products() {
+      tenantHitCount += 1;
+      return { hit: tenantHitCount };
+    }
+
+    @UseInterceptors(TenantCacheInterceptor)
+    @BypassTenancy()
+    @SharedTenantCache()
+    @CacheKey('catalog')
+    @CacheTTL(60)
+    @Get('/catalog')
+    catalog() {
+      sharedHitCount += 1;
+      return { hit: sharedHitCount };
+    }
+
+    @UseInterceptors(TenantCacheInterceptor)
+    @BypassTenancy()
+    @CacheKey('public')
+    @CacheTTL(60)
+    @Get('/public')
+    publicRoute() {
+      publicHitCount += 1;
+      return { hit: publicHitCount };
+    }
+  }
+
+  beforeEach(async () => {
+    tenantHitCount = 0;
+    sharedHitCount = 0;
+    publicHitCount = 0;
+
+    const moduleRef = await Test.createTestingModule({
+      imports: [
+        CacheModule.register(),
+        TenancyModule.forRoot({
+          tenantExtractor: new HeaderTenantExtractor('x-tenant-id'),
+          validateTenantId: (id) => id.length > 0,
+        }),
+      ],
+      controllers: [TestController],
+    }).compile();
+
+    app = moduleRef.createNestApplication();
+    await app.listen(0, '127.0.0.1');
+    appUrl = await app.getUrl();
+  });
+
+  afterEach(async () => {
+    if (app) {
+      await app.close();
+    }
+  });
+
+  it('should cache same route separately per tenant', async () => {
+    await request(appUrl)
+      .get('/products')
+      .set('x-tenant-id', 'tenant-a')
+      .expect(200, { hit: 1 });
+    await request(appUrl)
+      .get('/products')
+      .set('x-tenant-id', 'tenant-a')
+      .expect(200, { hit: 1 });
+    await request(appUrl)
+      .get('/products')
+      .set('x-tenant-id', 'tenant-b')
+      .expect(200, { hit: 2 });
+    await request(appUrl)
+      .get('/products')
+      .set('x-tenant-id', 'tenant-b')
+      .expect(200, { hit: 2 });
+  });
+
+  it('should reuse shared cache across tenant contexts and no-tenant request', async () => {
+    await request(appUrl)
+      .get('/catalog')
+      .set('x-tenant-id', 'tenant-a')
+      .expect(200, { hit: 1 });
+    await request(appUrl)
+      .get('/catalog')
+      .set('x-tenant-id', 'tenant-b')
+      .expect(200, { hit: 1 });
+    await request(appUrl).get('/catalog').expect(200, { hit: 1 });
+  });
+
+  it('should not cache public route without tenant when route is not shared', async () => {
+    await request(appUrl).get('/public').expect(200, { hit: 1 });
+    await request(appUrl).get('/public').expect(200, { hit: 2 });
   });
 });
