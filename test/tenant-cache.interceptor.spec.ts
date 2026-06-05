@@ -1,8 +1,14 @@
 import 'reflect-metadata';
 import { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { CacheKey, CacheModule } from '@nestjs/cache-manager';
+import { Test } from '@nestjs/testing';
 import { createHash } from 'crypto';
-import { TenantCacheInterceptor, TenantCacheInterceptorOptions } from '../src/cache';
+import {
+  TENANT_CACHE_INTERCEPTOR_OPTIONS,
+  TenantCacheInterceptor,
+  TenantCacheInterceptorOptions,
+} from '../src/cache';
 import { TenancyContext } from '../src/services/tenancy-context';
 import { SHARED_TENANT_CACHE_KEY } from '../src/tenancy.constants';
 
@@ -11,6 +17,10 @@ type BaseCacheKey =
   | string
   | undefined
   | null;
+
+type TrackByCapable = {
+  trackBy(context: ExecutionContext): BaseCacheKey;
+};
 
 class TestTenantCacheInterceptor extends TenantCacheInterceptor {
   constructor(
@@ -205,5 +215,58 @@ describe('TenantCacheInterceptor', () => {
 
     expect(result).toBe(`tenant:${hashedTenantId}:GET:/products`);
     expect(result).not.toContain(tenantId);
+  });
+
+  it('should resolve from Nest dependency injection without an options provider', async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [CacheModule.register()],
+      providers: [TenantCacheInterceptor],
+    }).compile();
+
+    try {
+      expect(moduleRef.get(TenantCacheInterceptor)).toBeInstanceOf(
+        TenantCacheInterceptor,
+      );
+    } finally {
+      await moduleRef.close();
+    }
+  });
+
+  it('should apply injected options when resolving from Nest dependency injection', async () => {
+    class ProductsController {
+      @CacheKey('products')
+      findAll() {}
+    }
+
+    const moduleRef = await Test.createTestingModule({
+      imports: [CacheModule.register()],
+      providers: [
+        TenantCacheInterceptor,
+        {
+          provide: TENANT_CACHE_INTERCEPTOR_OPTIONS,
+          useValue: {
+            tenantPrefix: 'org',
+            sharedPrefix: 'global',
+            separator: '|',
+          } satisfies TenantCacheInterceptorOptions,
+        },
+      ],
+    }).compile();
+
+    try {
+      const interceptor = moduleRef.get(TenantCacheInterceptor);
+      const execCtx = createExecutionContext(
+        ProductsController.prototype.findAll,
+        ProductsController,
+      );
+
+      const result = await tenancyContext.run('tenant-a', () =>
+        (interceptor as unknown as TrackByCapable).trackBy(execCtx),
+      );
+
+      expect(result).toBe('org|tenant-a|products');
+    } finally {
+      await moduleRef.close();
+    }
   });
 });

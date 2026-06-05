@@ -1,9 +1,10 @@
-import { ExecutionContext, Injectable } from '@nestjs/common';
+import { ExecutionContext, Inject, Injectable, Optional } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { CacheInterceptor } from '@nestjs/cache-manager';
+import { CACHE_MANAGER, CacheInterceptor } from '@nestjs/cache-manager';
 import { createHash } from 'crypto';
 import { SHARED_TENANT_CACHE_KEY } from '../tenancy.constants';
 import { TenancyContext } from '../services/tenancy-context';
+import { TENANT_CACHE_INTERCEPTOR_OPTIONS } from './tenant-cache.constants';
 import { TenantCacheInterceptorOptions } from './tenant-cache-options.interface';
 
 type BaseCacheKey = Promise<string | undefined | null> | string | undefined | null;
@@ -16,8 +17,11 @@ export class TenantCacheInterceptor extends CacheInterceptor {
   private readonly hashTenantId: boolean;
 
   constructor(
+    @Inject(CACHE_MANAGER)
     cacheManager: ConstructorParameters<typeof CacheInterceptor>[0],
     reflector: Reflector,
+    @Optional()
+    @Inject(TENANT_CACHE_INTERCEPTOR_OPTIONS)
     options?: TenantCacheInterceptorOptions,
   ) {
     super(cacheManager, reflector);
