@@ -103,10 +103,10 @@ describe('TenantCacheInterceptor', () => {
       interceptor.track(execCtx),
     );
 
-    expect(result).toBe('tenant:tenant-a:GET:/products');
+    expect(result).toBe('tenant:8:tenant-a:GET:/products');
   });
 
-  it('should preserve unsafe tenant ID characters by default', async () => {
+  it('should preserve unsafe tenant ID characters with an unambiguous length prefix', async () => {
     const interceptor = new TestTenantCacheInterceptor(reflector, 'GET:/products');
     const execCtx = createExecutionContext();
     const tenantId = 'tenant a/b?c=d:e';
@@ -115,7 +115,28 @@ describe('TenantCacheInterceptor', () => {
       interceptor.track(execCtx),
     );
 
-    expect(result).toBe(`tenant:${tenantId}:GET:/products`);
+    expect(result).toBe(`tenant:${tenantId.length}:${tenantId}:GET:/products`);
+  });
+
+  it('should serialize tenant IDs without separator-based key collisions', async () => {
+    const firstInterceptor = new TestTenantCacheInterceptor(
+      reflector,
+      '/products?x=b:/products?x=c',
+    );
+    const secondInterceptor = new TestTenantCacheInterceptor(
+      reflector,
+      '/products?x=c',
+    );
+    const execCtx = createExecutionContext();
+
+    const firstKey = await tenancyContext.run('a', () =>
+      firstInterceptor.track(execCtx),
+    );
+    const secondKey = await tenancyContext.run('a:/products?x=b', () =>
+      secondInterceptor.track(execCtx),
+    );
+
+    expect(firstKey).not.toBe(secondKey);
   });
 
   it('should support async base cache keys from CacheInterceptor.trackBy', async () => {
@@ -129,7 +150,7 @@ describe('TenantCacheInterceptor', () => {
       interceptor.track(execCtx),
     );
 
-    expect(result).toBe('tenant:tenant-a:GET:/products');
+    expect(result).toBe('tenant:8:tenant-a:GET:/products');
   });
 
   it.each([undefined, null, ''])(
@@ -196,7 +217,7 @@ describe('TenantCacheInterceptor', () => {
       interceptor.track(execCtx),
     );
 
-    expect(result).toBe('org|tenant-a|GET:/products');
+    expect(result).toBe('org|8:tenant-a|GET:/products');
   });
 
   it('should support custom shared prefix and separator', async () => {
@@ -275,7 +296,7 @@ describe('TenantCacheInterceptor', () => {
         (interceptor as unknown as TrackByCapable).trackBy(execCtx),
       );
 
-      expect(result).toBe('org|tenant-a|products');
+      expect(result).toBe('org|8:tenant-a|products');
     } finally {
       await moduleRef.close();
     }

@@ -4,7 +4,7 @@
 
 **Goal:** Implement a v0.13.0 tenant-aware HTTP response cache interceptor that namespaces NestJS cache keys by tenant and requires explicit opt-in for shared cache entries.
 
-**Architecture:** Add an optional cache integration layer that subclasses `CacheInterceptor` from `@nestjs/cache-manager` and overrides `trackBy()` only. The interceptor reads tenant context from the existing static `TenancyContext`, uses metadata from a new `@SharedTenantCache()` decorator for public/shared routes, and leaves cache storage, TTL, and HTTP method behavior to NestJS. The feature is exported from the root package entrypoint but remains optional through peer dependency metadata.
+**Architecture:** Add an optional cache integration layer that subclasses `CacheInterceptor` from `@nestjs/cache-manager` and overrides `trackBy()` only. The interceptor reads tenant context from the existing static `TenancyContext`, uses metadata from a new `@SharedTenantCache()` decorator for public/shared routes, and leaves cache storage, TTL, and HTTP method behavior to NestJS. The feature is exported from the `@nestarc/tenancy/cache` subpath so root package imports do not eagerly load optional cache dependencies.
 
 **Tech Stack:** TypeScript, NestJS 10/11, `@nestjs/cache-manager`, `cache-manager`, Jest, reflect-metadata, Node.js `crypto`
 
@@ -298,7 +298,7 @@ describe('TenantCacheInterceptor', () => {
       (interceptor as TrackByCapable).trackBy(execCtx),
     );
 
-    expect(result).toBe('tenant:tenant-a:GET:/products');
+    expect(result).toBe('tenant:8:tenant-a:GET:/products');
   });
 
   it('should not cache when base interceptor returns undefined', async () => {
@@ -461,7 +461,7 @@ export class TenantCacheInterceptor extends CacheInterceptor {
 
     return this.joinKeyParts(
       this.tenantPrefix,
-      this.hashTenantId ? hashTenantId(tenantId) : tenantId,
+      this.hashTenantId ? hashTenantId(tenantId) : formatTenantId(tenantId),
       baseKey,
     );
   }
@@ -480,6 +480,10 @@ export class TenantCacheInterceptor extends CacheInterceptor {
 
 function hashTenantId(tenantId: string): string {
   return createHash('sha256').update(tenantId).digest('hex');
+}
+
+function formatTenantId(tenantId: string): string {
+  return `${tenantId.length}:${tenantId}`;
 }
 ```
 
@@ -752,7 +756,8 @@ Database RLS does not protect Redis or in-memory response caches. If two tenants
 
 ```typescript
 import { CacheModule, CacheTTL } from '@nestjs/cache-manager';
-import { TenantCacheInterceptor } from '@nestarc/tenancy';
+import { TenancyModule } from '@nestarc/tenancy';
+import { TenantCacheInterceptor } from '@nestarc/tenancy/cache';
 
 @Module({
   imports: [
@@ -773,7 +778,7 @@ findProducts() {
 For tenant `tenant-a`, the effective cache key is prefixed like:
 
 ```text
-tenant:tenant-a:{baseCacheKey}
+tenant:8:tenant-a:{baseCacheKey}
 ```
 
 Install the optional cache dependencies before using the interceptor:
@@ -785,7 +790,7 @@ npm install @nestjs/cache-manager cache-manager
 Use `@SharedTenantCache()` only for data that is intentionally identical for every tenant:
 
 ```typescript
-import { SharedTenantCache, TenantCacheInterceptor } from '@nestarc/tenancy';
+import { SharedTenantCache, TenantCacheInterceptor } from '@nestarc/tenancy/cache';
 
 @UseInterceptors(TenantCacheInterceptor)
 @SharedTenantCache()
@@ -937,5 +942,5 @@ If no additional fixes were needed, do not create an empty commit.
 
 - Spec coverage: Tasks cover `TenantCacheInterceptor`, `@SharedTenantCache()`, configurable prefixes, optional cache peer metadata, README/CHANGELOG/roadmap updates, unit tests, integration-style tests, public API tests, and full validation.
 - Scope check: The plan stays HTTP response-cache focused. It does not add service-method caching, invalidation APIs, Redis-specific behavior, rate limiting, WebSocket support, GraphQL caching, or RPC caching.
-- Type consistency: Public names are `TenantCacheInterceptor`, `TenantCacheInterceptorOptions`, and `SharedTenantCache`. Metadata key is `SHARED_TENANT_CACHE_KEY`.
-- Security invariant: Missing tenant context returns no cache key unless `@SharedTenantCache()` is explicitly present; shared metadata wins only for intentionally public/shared cache entries.
+- Type consistency: Public names are `TenantCacheInterceptor`, `TenantCacheInterceptorOptions`, and `SharedTenantCache` from `@nestarc/tenancy/cache`. Metadata key is `SHARED_TENANT_CACHE_KEY`.
+- Security invariant: Missing tenant context returns no cache key unless `@SharedTenantCache()` is explicitly present; shared metadata wins only for intentionally public/shared cache entries; non-hashed tenant IDs are length-prefixed before joining so separator characters cannot create ambiguous cache keys.

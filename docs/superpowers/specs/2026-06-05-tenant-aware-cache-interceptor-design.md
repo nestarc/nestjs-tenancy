@@ -41,7 +41,7 @@ Add a NestJS interceptor that subclasses `CacheInterceptor` from `@nestjs/cache-
 Default key behavior:
 
 ```text
-tenant:{tenantId}:{baseCacheKey}
+tenant:{tenantIdLength}:{tenantId}:{baseCacheKey}
 ```
 
 For a request with tenant `acme` and a base NestJS key such as `GET:/products?limit=20`, the effective key becomes:
@@ -72,7 +72,7 @@ Add metadata for routes whose cache should be shared across tenants.
 Proposed API:
 
 ```typescript
-import { SharedTenantCache, TenantCacheInterceptor } from '@nestarc/tenancy';
+import { SharedTenantCache, TenantCacheInterceptor } from '@nestarc/tenancy/cache';
 import { CacheTTL } from '@nestjs/cache-manager';
 
 @UseInterceptors(TenantCacheInterceptor)
@@ -219,11 +219,11 @@ The base key should not be parsed or reordered by `@nestarc/tenancy`. It should 
 Default formatting:
 
 ```typescript
-`${tenantPrefix}${separator}${tenantId}${separator}${baseKey}`
+`${tenantPrefix}${separator}${tenantId.length}:${tenantId}${separator}${baseKey}`
 `${sharedPrefix}${separator}${baseKey}`
 ```
 
-If `hashTenantId` is enabled, the tenant ID component is replaced with a stable SHA-256 hex digest. The base key remains unchanged because it is already controlled by NestJS and user-provided `@CacheKey()` metadata.
+The non-hashed tenant ID component is length-prefixed so tenant IDs containing the configured separator cannot collide with opaque NestJS base keys. If `hashTenantId` is enabled, the tenant ID component is replaced with a stable SHA-256 hex digest. The base key remains unchanged because it is already controlled by NestJS and user-provided `@CacheKey()` metadata.
 
 ### Optional Dependency Handling
 
@@ -245,12 +245,14 @@ export type { TenantCacheInterceptorOptions } from './cache/tenant-cache-options
 export { SharedTenantCache } from './decorators/shared-tenant-cache.decorator';
 ```
 
+Implementation note: expose this cache feature through `@nestarc/tenancy/cache` rather than the root entrypoint so root `@nestarc/tenancy` imports do not eagerly load the optional `@nestjs/cache-manager` runtime.
+
 ### Route-Level Usage
 
 ```typescript
 import { Controller, Get, UseInterceptors } from '@nestjs/common';
 import { CacheTTL } from '@nestjs/cache-manager';
-import { TenantCacheInterceptor } from '@nestarc/tenancy';
+import { TenantCacheInterceptor } from '@nestarc/tenancy/cache';
 
 @Controller('products')
 export class ProductsController {
@@ -269,7 +271,8 @@ export class ProductsController {
 import { Module } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { CacheModule } from '@nestjs/cache-manager';
-import { TenancyModule, TenantCacheInterceptor } from '@nestarc/tenancy';
+import { TenancyModule } from '@nestarc/tenancy';
+import { TenantCacheInterceptor } from '@nestarc/tenancy/cache';
 
 @Module({
   imports: [
@@ -289,7 +292,7 @@ export class AppModule {}
 ### Shared Route Usage
 
 ```typescript
-import { SharedTenantCache, TenantCacheInterceptor } from '@nestarc/tenancy';
+import { SharedTenantCache, TenantCacheInterceptor } from '@nestarc/tenancy/cache';
 
 @UseInterceptors(TenantCacheInterceptor)
 @SharedTenantCache()
@@ -342,8 +345,8 @@ Use NestJS testing utilities to prove:
 
 Extend public API smoke tests to assert:
 
-- `TenantCacheInterceptor` is exported from the root entrypoint.
-- `SharedTenantCache` is exported from the root entrypoint.
+- `TenantCacheInterceptor` is exported from the `@nestarc/tenancy/cache` subpath.
+- `SharedTenantCache` is exported from the `@nestarc/tenancy/cache` subpath.
 - `TenantCacheInterceptorOptions` type is importable.
 
 ### Verification Commands

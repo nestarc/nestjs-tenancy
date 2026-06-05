@@ -852,7 +852,7 @@ export class ProductsController {
 }
 ```
 
-By default, the interceptor turns Nest's base cache key into `tenant:{tenantId}:{baseCacheKey}`. The base cache key is the same key Nest's `CacheInterceptor` would have used, including any `@CacheKey()` override.
+By default, the interceptor turns Nest's base cache key into `tenant:{tenantIdLength}:{tenantId}:{baseCacheKey}`. The length prefix keeps tenant IDs containing `:` or another configured separator from colliding with opaque Nest cache keys. The base cache key is the same key Nest's `CacheInterceptor` would have used, including any `@CacheKey()` override.
 
 For routes where the response is intentionally public or shared across tenants, opt in with `@SharedTenantCache()` from `@nestarc/tenancy/cache`:
 

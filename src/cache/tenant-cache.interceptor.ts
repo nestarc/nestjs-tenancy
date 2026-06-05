@@ -69,7 +69,7 @@ export class TenantCacheInterceptor extends CacheInterceptor {
       return createHash('sha256').update(tenantId).digest('hex');
     }
 
-    return tenantId;
+    return `${tenantId.length}:${tenantId}`;
   }
 
   private joinKeyParts(...parts: string[]): string {
