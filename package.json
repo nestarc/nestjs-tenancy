@@ -12,6 +12,10 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./cache": {
+      "types": "./dist/cache/index.d.ts",
+      "default": "./dist/cache/index.js"
+    },
     "./testing": {
       "types": "./dist/testing/index.d.ts",
       "default": "./dist/testing/index.js"
@@ -19,6 +23,9 @@
   },
   "typesVersions": {
     "*": {
+      "cache": [
+        "dist/cache/index.d.ts"
+      ],
       "testing": [
         "dist/testing/index.d.ts"
       ]

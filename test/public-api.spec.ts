@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import {
   BypassTenancy,
   BullTenantPropagator,
@@ -66,6 +69,17 @@ import type {
   IsolationTestOptions,
   TestTenancyModuleOptions,
 } from '../src/testing';
+import {
+  SharedTenantCache,
+  TENANT_CACHE_INTERCEPTOR_OPTIONS,
+  TenantCacheInterceptor,
+} from '../src/cache';
+import type { TenantCacheInterceptorOptions } from '../src/cache';
+
+type PackageMetadata = {
+  exports: Record<string, { types: string; default: string }>;
+  typesVersions?: Record<string, Record<string, string[]>>;
+};
 
 describe('public API barrels', () => {
   it('exports root runtime API from src/index.ts', () => {
@@ -129,6 +143,22 @@ describe('public API barrels', () => {
     );
   });
 
+  it('keeps cache runtime API off the root surface to preserve optional peer safety', () => {
+    try {
+      jest.isolateModules(() => {
+        jest.doMock('@nestjs/cache-manager', () => {
+          throw new Error('root API imported optional cache runtime');
+        });
+
+        const rootApi = jest.requireActual('../src') as Record<string, unknown>;
+
+        expect(rootApi.TenantCacheInterceptor).toBeUndefined();
+      });
+    } finally {
+      jest.dontMock('@nestjs/cache-manager');
+    }
+  });
+
   it('exports testing runtime API from src/testing/index.ts', () => {
     expect({
       TestTenancyModule,
@@ -139,6 +169,44 @@ describe('public API barrels', () => {
       withTenant: expect.any(Function),
       expectTenantIsolation: expect.any(Function),
     });
+  });
+
+  it('exports cache runtime API from src/cache/index.ts', () => {
+    const options: TenantCacheInterceptorOptions = {
+      tenantPrefix: 'tenant',
+      sharedPrefix: 'shared',
+    };
+
+    expect({
+      SharedTenantCache,
+      TENANT_CACHE_INTERCEPTOR_OPTIONS,
+      TenantCacheInterceptor,
+      options,
+    }).toEqual({
+      SharedTenantCache: expect.any(Function),
+      TENANT_CACHE_INTERCEPTOR_OPTIONS: Symbol.for(
+        '@nestarc/tenancy/TENANT_CACHE_INTERCEPTOR_OPTIONS',
+      ),
+      TenantCacheInterceptor: expect.any(Function),
+      options,
+    });
+  });
+
+  it('publishes cache API through a dedicated subpath export', () => {
+    const packageMetadata = JSON.parse(
+      readFileSync(join(__dirname, '..', 'package.json'), 'utf8'),
+    ) as PackageMetadata;
+
+    expect(packageMetadata.exports['./cache']).toEqual({
+      types: './dist/cache/index.d.ts',
+      default: './dist/cache/index.js',
+    });
+    expect(packageMetadata.typesVersions?.['*']).toEqual(
+      expect.objectContaining({
+        testing: ['dist/testing/index.d.ts'],
+        cache: ['dist/cache/index.d.ts'],
+      }),
+    );
   });
 
   it('allows representative public types to be used without internal imports', () => {
