@@ -5,6 +5,9 @@ export const TENANCY_MODULE_OPTIONS = Symbol.for(
 export const BYPASS_TENANCY_KEY = Symbol.for(
   '@nestarc/tenancy/BYPASS_TENANCY_KEY',
 );
+export const SHARED_TENANT_CACHE_KEY = Symbol.for(
+  '@nestarc/tenancy/SHARED_TENANT_CACHE_KEY',
+);
 export const DEFAULT_DB_SETTING_KEY = 'app.current_tenant';
 /**
  * Broad UUID-like validation used by the default tenant validator.
