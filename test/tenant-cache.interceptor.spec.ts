@@ -85,7 +85,7 @@ describe('TenantCacheInterceptor', () => {
     expect(result).toBe('tenant:tenant-a:GET:/products');
   });
 
-  it('should encode unsafe tenant IDs before joining key parts', async () => {
+  it('should preserve unsafe tenant ID characters by default', async () => {
     const interceptor = new TestTenantCacheInterceptor(reflector, 'GET:/products');
     const execCtx = createExecutionContext();
     const tenantId = 'tenant a/b?c=d:e';
@@ -94,9 +94,7 @@ describe('TenantCacheInterceptor', () => {
       interceptor.track(execCtx),
     );
 
-    expect(result).toBe(
-      `tenant:${encodeURIComponent(tenantId)}:GET:/products`,
-    );
+    expect(result).toBe(`tenant:${tenantId}:GET:/products`);
   });
 
   it('should support async base cache keys from CacheInterceptor.trackBy', async () => {
