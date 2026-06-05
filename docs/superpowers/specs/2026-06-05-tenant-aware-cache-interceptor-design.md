@@ -47,7 +47,7 @@ tenant:{tenantIdLength}:{tenantId}:{baseCacheKey}
 For a request with tenant `acme` and a base NestJS key such as `GET:/products?limit=20`, the effective key becomes:
 
 ```text
-tenant:acme:GET:/products?limit=20
+tenant:4:acme:GET:/products?limit=20
 ```
 
 Required behavior:
