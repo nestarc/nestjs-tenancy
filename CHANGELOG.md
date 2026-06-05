@@ -19,6 +19,10 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 - Kept the root `@nestarc/tenancy` entrypoint free of eager cache runtime imports; cache APIs must be imported from `@nestarc/tenancy/cache`.
 
+### Fixed
+
+- Preserved NestJS 10 middleware registration by selecting the legacy `*` wildcard route path on Nest 10 while using the named `{*splat}` path on Nest 11 and newer.
+
 ### Security
 
 - Tenant-aware cache keys prevent Redis/in-memory response cache key collisions across tenants, but they do not authorize access. Shared cache opt-in only changes cache key generation.

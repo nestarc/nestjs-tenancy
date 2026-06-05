@@ -21,12 +21,39 @@ import { TenancyEventService } from './events/tenancy-event.service';
 import { TenancyTelemetryService } from './telemetry/tenancy-telemetry.service';
 import { TENANCY_MODULE_OPTIONS } from './tenancy.constants';
 
+function getNestMajorVersion(): number | null {
+  try {
+    const nestCorePackage = require('@nestjs/core/package.json') as {
+      version?: string;
+    };
+    const majorVersion = Number.parseInt(
+      nestCorePackage.version?.split('.')[0] ?? '',
+      10,
+    );
+
+    return Number.isFinite(majorVersion) ? majorVersion : null;
+  } catch {
+    return null;
+  }
+}
+
+export function getTenancyAllRoutesPath(
+  nestMajorVersion: number | null = getNestMajorVersion(),
+): string {
+  return nestMajorVersion !== null && nestMajorVersion < 11
+    ? '*'
+    : '{*splat}';
+}
+
 @Module({})
 export class TenancyModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(TenantMiddleware)
-      .forRoutes({ path: '{*splat}', method: RequestMethod.ALL });
+      .forRoutes({
+        path: getTenancyAllRoutesPath(),
+        method: RequestMethod.ALL,
+      });
   }
 
   static forRoot(options: TenancyModuleOptions): DynamicModule {

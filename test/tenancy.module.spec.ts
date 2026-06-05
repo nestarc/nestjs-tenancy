@@ -1,20 +1,33 @@
 import { Module, RequestMethod } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { TenancyModule } from '../src/tenancy.module';
+import {
+  getTenancyAllRoutesPath,
+  TenancyModule,
+} from '../src/tenancy.module';
 import { TenancyService } from '../src/services/tenancy.service';
 import { TenancyEventService } from '../src/events/tenancy-event.service';
 import { TenancyModuleOptionsFactory } from '../src/interfaces/tenancy-module-options.interface';
 import { TENANCY_MODULE_OPTIONS } from '../src/tenancy.constants';
 
 describe('TenancyModule', () => {
-  it('should register middleware for all routes with a named wildcard', () => {
+  it('should choose the legacy wildcard route path for NestJS 10', () => {
+    expect(getTenancyAllRoutesPath(10)).toBe('*');
+  });
+
+  it('should choose the named wildcard route path for NestJS 11 and newer', () => {
+    expect(getTenancyAllRoutesPath(11)).toBe('{*splat}');
+    expect(getTenancyAllRoutesPath(12)).toBe('{*splat}');
+    expect(getTenancyAllRoutesPath(null)).toBe('{*splat}');
+  });
+
+  it('should register middleware for all routes with a Nest-compatible wildcard', () => {
     const forRoutes = jest.fn();
     const apply = jest.fn(() => ({ forRoutes }));
 
     new TenancyModule().configure({ apply } as any);
 
     expect(forRoutes).toHaveBeenCalledWith({
-      path: '{*splat}',
+      path: getTenancyAllRoutesPath(),
       method: RequestMethod.ALL,
     });
   });
