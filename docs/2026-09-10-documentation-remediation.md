@@ -48,3 +48,11 @@ The generated API continues to identify release `v0.16.0` at `68e62e5eab17b24b34
 GitHub repository metadata is already applied: homepage `https://nestarc.dev/packages/tenancy/`; Topics `nestjs`, `multi-tenancy`, `multi-tenant`, `prisma`, `postgresql`, `row-level-security`, `tenant-isolation`, `typescript`, and `saas`.
 
 Publish the package repository's new example/benchmark/documentation paths before deploying the site's links to those paths. The package homepage and bundled documentation reach npm on the next release; they do not mutate the existing 0.16.0 tarball. Search ranking, indexing timing, and whether an AI retrieves the guide were not measured or guaranteed.
+
+## Subsequent 0.16.1 publication
+
+The [0.16.1 release](https://github.com/nestarc/nestjs-tenancy/releases/tag/v0.16.1) was published on 2026-09-10 from commit `45da37672a5cdd30db4cde8eb72e6a7544f8afbd`. The [source CI](https://github.com/nestarc/nestjs-tenancy/actions/runs/34477424513) passed all 15 jobs, and the [release workflow](https://github.com/nestarc/nestjs-tenancy/actions/runs/34477664873) passed the same gates plus npm publication.
+
+npm `latest` resolves to 0.16.1 and its `gitHead` matches the release commit. The downloaded 159-file tarball's independent SHA-512 matches the registry integrity; packaged documentation links resolve, and generated example clients remain excluded. Both published-only ecosystem fixtures now pin this artifact; the Nest 10/Prisma 6 and Nest 11/Prisma 7 real-database flows each passed all three tests, with the other locked dependencies preserved.
+
+The [site source update](https://github.com/nestarc/nestarc.dev/commit/33ee329ec7e658b700667478f4e609583662540f) regenerates APIs from this actual release, removes the temporary 0.16.0 editorial overlay, and links version-pinned examples. Its local site validation passed 76 tests, 13 API packages, and 188 public pages. Deployment status belongs to that commit's Cloudflare Pages check; the historical pre-release state above is retained as an audit record.

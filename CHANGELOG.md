@@ -6,6 +6,13 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Tests
+
+- Advanced both published-only ecosystem fixtures to the verified npm
+  `@nestarc/tenancy@0.16.1` artifact after publication, preserving all other
+  locked dependencies and exact package-integrity checks. Both legacy and
+  modern PostgreSQL integration flows passed against the published package.
+
 ## [0.16.1] - 2026-09-10
 
 ### Fixed
