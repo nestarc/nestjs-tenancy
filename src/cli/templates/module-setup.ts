@@ -27,7 +27,7 @@ export function generateModuleSetup(options: ModuleSetupOptions): string {
   };
   const extractorClass = extractorImportMap[options.extractorType];
 
-  // Prisma extension is always needed for RLS — set_config() must run before every query
+  // Include the Prisma extension so tenant-scoped model queries set their RLS context.
   const hasExtensionOptions =
     options.autoInjectTenantId ||
     options.sharedModels.length > 0;

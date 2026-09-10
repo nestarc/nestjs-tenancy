@@ -58,20 +58,27 @@ const PRE_REFACTOR_GRAPH = {
 } as const;
 
 const REQUIRED_VALIDATION_JOBS = [
-  ...PRE_REFACTOR_GRAPH.validationJobs,
+  ...PRE_REFACTOR_GRAPH.validationJobs.slice(0, 3),
+  'documentation',
+  ...PRE_REFACTOR_GRAPH.validationJobs.slice(3),
   'ecosystem-modern-e2e',
 ] as const;
 const REQUIRED_RELEASE_JOBS = [
-  ...PRE_REFACTOR_GRAPH.releaseJobs.slice(0, -1),
+  ...PRE_REFACTOR_GRAPH.releaseJobs.slice(0, 3),
+  'documentation',
+  ...PRE_REFACTOR_GRAPH.releaseJobs.slice(3, -1),
   'ecosystem-modern-e2e',
   'publish',
 ] as const;
 const REQUIRED_PUBLISH_NEEDS = [
-  ...PRE_REFACTOR_GRAPH.publishNeeds,
+  ...PRE_REFACTOR_GRAPH.publishNeeds.slice(0, 3),
+  'documentation',
+  ...PRE_REFACTOR_GRAPH.publishNeeds.slice(3),
   'ecosystem-modern-e2e',
 ] as const;
 const REQUIRED_MATRIX_CARDINALITY = {
   ...PRE_REFACTOR_GRAPH.matrixCardinality,
+  documentation: 1,
   'ecosystem-modern-e2e': 1,
 } as const;
 
@@ -79,6 +86,7 @@ const JOB_TIMEOUTS = {
   test: 15,
   compat: 20,
   'package-smoke': 15,
+  documentation: 15,
   e2e: 15,
   'pgbouncer-e2e': 20,
   'redis-e2e': 10,
@@ -97,6 +105,7 @@ const GATE_RUN_COMMANDS = {
   ],
   compat: ['npm ci', 'npm run test:compat -- --lane ${{ matrix.lane }}'],
   'package-smoke': ['npm ci', 'npm run test:package'],
+  documentation: ['npm ci', 'npm run test:docs:e2e'],
   e2e: [
     'npm ci',
     'npx prisma generate --schema=test/e2e/schema.prisma',
@@ -129,6 +138,7 @@ const GATE_ACTIONS = {
   ],
   compat: ['actions/checkout@v6', 'actions/setup-node@v6'],
   'package-smoke': ['actions/checkout@v6', 'actions/setup-node@v6'],
+  documentation: ['actions/checkout@v6', 'actions/setup-node@v6'],
   e2e: ['actions/checkout@v6', 'actions/setup-node@v6'],
   'pgbouncer-e2e': ['actions/checkout@v6', 'actions/setup-node@v6'],
   'redis-e2e': ['actions/checkout@v6', 'actions/setup-node@v6'],
@@ -275,7 +285,7 @@ describe('shared validation workflow', () => {
     >;
   };
 
-  it('keeps the pre-refactor validation inventory and adds the modern ecosystem gate', () => {
+  it('keeps the earlier validation inventory and requires ecosystem and documentation gates', () => {
     expect(readJobIds(ciWorkflow)).toEqual([...REQUIRED_VALIDATION_JOBS]);
 
     const sourceGates = readJobBlock(ciWorkflow, 'test');
@@ -317,6 +327,7 @@ describe('shared validation workflow', () => {
       test: sourceVersions.length,
       compat: compatLanes.length,
       'package-smoke': 1,
+      documentation: 1,
       e2e: 1,
       'pgbouncer-e2e': prismaVersions.length,
       'redis-e2e': 1,
@@ -346,7 +357,7 @@ describe('shared validation workflow', () => {
     expect(prismaVersions).toEqual(['6.19.3', '7.10.0']);
     expect(actualCardinality).toEqual(REQUIRED_MATRIX_CARDINALITY);
     expect(Object.values(actualCardinality).reduce((a, b) => a + b, 0)).toBe(
-      14,
+      15,
     );
     expect(sourceGates).not.toMatch(/^ {8}exclude:/m);
     expect(compat).not.toMatch(/^ {8}(include|exclude):/m);

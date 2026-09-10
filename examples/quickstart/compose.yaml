@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16.14-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+    ports:
+      - "127.0.0.1:${QUICKSTART_PG_PORT:-5434}:5432"
+    environment:
+      POSTGRES_USER: quickstart_admin
+      POSTGRES_PASSWORD: quickstart_admin
+      POSTGRES_DB: tenancy_quickstart
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quickstart_admin -d tenancy_quickstart"]
+      interval: 2s
+      timeout: 5s
+      retries: 15

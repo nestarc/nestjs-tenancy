@@ -34,15 +34,27 @@ export interface PrismaTenancyExtensionOptions {
    * fails before the extension is created.
    */
   dbSettingKey?: string;
+  /**
+   * Inject the current tenant into top-level create/createMany/createManyAndReturn
+   * data and upsert.create, replacing any supplied value. Removes the tenant
+   * field from upsert.update. Does not recursively inject nested writes.
+   * @default false
+   */
   autoInjectTenantId?: boolean;
+  /** Tenant field used by automatic injection. @default tenant_id */
   tenantIdField?: string;
+  /**
+   * Prisma model names that skip this extension's context setup, automatic
+   * injection, and fail-closed check. Database RLS policies still apply.
+   */
   sharedModels?: string[];
   /**
    * When true, throws `TenancyContextRequiredError` if a query is executed
    * without a tenant context (unless the model is in `sharedModels` or
-   * `withoutTenant()` was used to explicitly bypass).
+   * `withoutTenant()` was used to explicitly bypass the client-side check).
    *
-   * Prevents accidental data exposure when RLS policies are misconfigured.
+   * This check covers model operations, not raw SQL. It does not replace
+   * correctly configured database RLS policies or alter database privileges.
    * @default true
    */
   failClosed?: boolean;
@@ -70,22 +82,24 @@ export interface PrismaTenancyExtensionOptions {
 
 /**
  * Creates a Prisma Client Extension that sets the PostgreSQL RLS context
- * before every model query when a tenant context exists.
+ * before model queries when a tenant context exists, except for `sharedModels`.
+ * Raw SQL operations are outside this extension's model query hook.
  *
  * Uses `Prisma.defineExtension` to access the base client via closure,
- * then wraps each query in a batch transaction:
+ * then wraps each covered query in a batch transaction:
  *   1. `SELECT set_config(key, tenantId, TRUE)` — sets the RLS variable (transaction-local)
- *   2. `query(args)` — the original query, now filtered by RLS
+ *   2. `query(args)` — the original query, subject to the database's RLS policies
  *
  * SECURITY: Uses `$executeRaw` tagged template with bind parameters.
- * `set_config()` accepts parameterized values, unlike `SET LOCAL` which
- * requires string interpolation. This eliminates SQL injection risk entirely.
+ * `set_config()` accepts the setting key and tenant ID as bound values, so
+ * those values cannot alter this context-setting statement's SQL structure.
+ * This does not make arbitrary application SQL safe or replace authorization.
  *
  * Options:
  * - `dbSettingKey`: Optional assertion matching the TenancyService canonical key
- * - `autoInjectTenantId`: Automatically inject tenant ID into write operations
+ * - `autoInjectTenantId`: Inject tenant ID into supported top-level create operations
  * - `tenantIdField`: Field name to inject tenant ID into (default: tenant_id)
- * - `sharedModels`: Models that are shared across tenants (skips RLS and injection)
+ * - `sharedModels`: Skip extension handling for listed models; database RLS still applies
  * - `failClosed`: Throw when model queries run without tenant context (default: true)
  *
  * **Interactive transactions:**

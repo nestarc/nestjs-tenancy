@@ -27,9 +27,12 @@ export class PathTenantExtractor implements TenantExtractor {
   }
 
   extract(request: TenancyRequest): string | null {
-    if (!request.path) return null;
+    // Express exposes `path`; raw Node middleware and other adapters may only
+    // expose `url`. Keep the adapter's path authoritative when it is present.
+    const requestPath = request.path || request.url;
+    if (typeof requestPath !== 'string') return null;
 
-    const pathSegments = pathWithoutQueryOrHash(request.path).split('/').filter(Boolean);
+    const pathSegments = pathWithoutQueryOrHash(requestPath).split('/').filter(Boolean);
 
     if (pathSegments.length < this.patternSegments.length) return null;
 

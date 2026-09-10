@@ -5,7 +5,23 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "docs/api.md",
+    "docs/compatibility.md",
+    "docs/http.md",
+    "docs/integrations.md",
+    "docs/operations.md",
+    "docs/prisma.md",
+    "docs/usage-for-agents.md",
+    "llms.txt",
+    "SECURITY.md",
+    "docs/README.md",
+    "examples/quickstart",
+    "!examples/quickstart/generated",
+    "!examples/quickstart/.generated",
+    "!examples/quickstart/dist",
+    "benchmarks/README.md",
+    "benchmarks/results/2026-09-10-documentation-remediation.json"
   ],
   "exports": {
     ".": {
@@ -56,7 +72,11 @@
     "bench": "npx ts-node benchmarks/rls-overhead.ts",
     "lint": "eslint src/ test/",
     "lint:typed": "eslint --config eslint.typed.config.mjs src/ test/",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "example:quickstart:setup": "node scripts/quickstart.js setup",
+    "example:quickstart:start": "node scripts/quickstart.js start",
+    "test:docs": "node scripts/test-docs.js",
+    "test:docs:e2e": "node scripts/test-docs.js --e2e"
   },
   "keywords": [
     "nestjs",
@@ -73,7 +93,7 @@
     "nestjs-module"
   ],
   "license": "MIT",
-  "homepage": "https://nestarc.dev",
+  "homepage": "https://nestarc.dev/packages/tenancy/",
   "repository": {
     "type": "git",
     "url": "https://github.com/nestarc/nestjs-tenancy"

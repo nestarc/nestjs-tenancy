@@ -1,0 +1,19 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "./generated"
+  moduleFormat        = "cjs"
+  importFileExtension = "ts"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Project {
+  id        String @id @default(uuid()) @db.Uuid
+  tenant_id String @db.Uuid
+  name      String
+
+  @@index([tenant_id])
+  @@map("projects")
+}

@@ -14,7 +14,10 @@
  * Usage:
  *   docker compose up -d --wait
  *   DATABASE_URL=postgresql://tenancy:tenancy@localhost:5433/tenancy_test \
- *     npx ts-node benchmarks/rls-overhead.ts
+ *     npm run bench -- --allow-fixture-reset --output benchmarks/results/local.json
+ *
+ * Use a disposable database: setup.sql replaces users, force_owner_users, and
+ * countries. See benchmarks/README.md for provenance and output format details.
  */
 
 import { execFileSync } from 'child_process';
@@ -27,6 +30,7 @@ import { TenancyContext } from '../src/services/tenancy-context';
 import { TenancyService } from '../src/services/tenancy.service';
 import { createPrismaTenancyExtension } from '../src/prisma/prisma-tenancy.extension';
 import { DEFAULT_DB_SETTING_KEY } from '../src/tenancy.constants';
+import { analyze, BenchResult, BenchmarkSample, parseOptions, snapshotSources, writeReport } from './report';
 
 const ADMIN_URL =
   process.env.DATABASE_URL ?? 'postgresql://tenancy:tenancy@localhost:5433/tenancy_test';
@@ -36,21 +40,7 @@ const APP_URL =
 const TENANT_1 = '11111111-1111-1111-1111-111111111111';
 const TENANT_2 = '22222222-2222-2222-2222-222222222222';
 const TENANT_3 = '33333333-3333-3333-3333-333333333333';
-const WARMUP = 50;
-const ITERATIONS = 500;
-
-interface BenchResult {
-  label: string;
-  iterations: number;
-  rowCount: number;
-  totalMs: number;
-  avgMs: number;
-  p50Ms: number;
-  p95Ms: number;
-  p99Ms: number;
-  minMs: number;
-  maxMs: number;
-}
+const ROOT = path.join(__dirname, '..');
 
 interface PrismaUserDelegate {
   findMany(args?: Record<string, unknown>): Promise<unknown[]>;
@@ -81,30 +71,8 @@ function createClient(
 
 type BenchTask<T> = () => Promise<T>;
 
-function percentile(sorted: number[], p: number): number {
-  const idx = Math.ceil((p / 100) * sorted.length) - 1;
-  return sorted[Math.max(0, idx)];
-}
-
 function roundMs(value: number): number {
   return Math.round(value * 1000) / 1000;
-}
-
-function analyze(label: string, timings: number[], rowCount: number): BenchResult {
-  const sorted = [...timings].sort((a, b) => a - b);
-  const total = sorted.reduce((a, b) => a + b, 0);
-  return {
-    label,
-    iterations: sorted.length,
-    rowCount,
-    totalMs: roundMs(total),
-    avgMs: roundMs(total / sorted.length),
-    p50Ms: roundMs(percentile(sorted, 50)),
-    p95Ms: roundMs(percentile(sorted, 95)),
-    p99Ms: roundMs(percentile(sorted, 99)),
-    minMs: roundMs(sorted[0]),
-    maxMs: roundMs(sorted[sorted.length - 1]),
-  };
 }
 
 function inferRowCount(result: unknown): number {
@@ -121,23 +89,37 @@ function formatDelta(deltaMs: number, baselineMs: number): string {
   return `${formatSigned(deltaMs)}ms (${pct})`;
 }
 
-async function runBenchmark<T>(label: string, task: BenchTask<T>): Promise<BenchResult> {
-  console.log(`Warming up ${label} (${WARMUP} iterations)...`);
-  for (let i = 0; i < WARMUP; i++) {
-    await task();
+async function runBenchmark<T>(
+  id: string,
+  label: string,
+  task: BenchTask<T>,
+  warmup: number,
+  iterations: number,
+  expectedRows: number,
+): Promise<BenchResult> {
+  const checkRows = (result: unknown): number => {
+    const rowCount = inferRowCount(result);
+    if (rowCount !== expectedRows) {
+      throw new Error(`Scenario ${id} returned ${rowCount} rows; expected ${expectedRows}. Check the fixture, database roles, and RLS policies.`);
+    }
+    return rowCount;
+  };
+  console.log(`Warming up ${label} (${warmup} iterations)...`);
+  for (let i = 0; i < warmup; i++) {
+    checkRows(await task());
   }
 
-  const rowCount = inferRowCount(await task());
-  console.log(`Running ${label} (${ITERATIONS} iterations, rows=${rowCount})...`);
+  console.log(`Running ${label} (${iterations} iterations, rows=${expectedRows})...`);
 
-  const timings: number[] = [];
-  for (let i = 0; i < ITERATIONS; i++) {
+  const samples: BenchmarkSample[] = [];
+  for (let i = 0; i < iterations; i++) {
     const start = performance.now();
-    await task();
-    timings.push(performance.now() - start);
+    const result = await task();
+    const durationMs = performance.now() - start;
+    samples.push({ durationMs, rowCount: checkRows(result) });
   }
 
-  return analyze(label, timings, rowCount);
+  return analyze(id, label, samples);
 }
 
 async function seedBenchmarkRows(adminClient: Client): Promise<void> {
@@ -166,22 +148,45 @@ async function seedBenchmarkRows(adminClient: Client): Promise<void> {
   }
 }
 
-async function printEnvironment(adminClient: Client): Promise<void> {
-  const postgres = await adminClient.query('SHOW server_version');
-  let prismaVersion = 'unknown';
+function packageVersion(name: string): string | null {
   try {
-    prismaVersion = require('@prisma/client/package.json').version;
+    return (require(`${name}/package.json`) as { version: string }).version;
   } catch {
-    // Keep benchmark runnable even when package metadata is unavailable.
+    // Some packages export their entry point but not package.json.
+    try {
+      let directory = path.dirname(require.resolve(name));
+      for (;;) {
+        const metadataPath = path.join(directory, 'package.json');
+        if (fs.existsSync(metadataPath)) {
+          const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8')) as { name: string; version: string };
+          if (metadata.name === name) return metadata.version;
+        }
+        const parent = path.dirname(directory);
+        if (parent === directory) break;
+        directory = parent;
+      }
+    } catch {
+      // Keep unavailable metadata explicit rather than guessing from a range.
+    }
+    return null;
   }
+}
 
-  console.log('Environment:');
-  console.log(`  Node: ${process.version}`);
-  console.log(`  Platform: ${process.platform} ${process.arch}`);
-  console.log(`  CPU: ${os.cpus()[0]?.model ?? 'unknown'}`);
-  console.log(`  PostgreSQL: ${postgres.rows[0]?.server_version ?? 'unknown'}`);
-  console.log(`  Prisma Client: ${prismaVersion}`);
-  console.log(`  Warmup: ${WARMUP} | Iterations: ${ITERATIONS}\n`);
+async function readEnvironment(adminClient: Client) {
+  const postgres = await adminClient.query('SHOW server_version');
+  return {
+    node: process.version,
+    platform: process.platform,
+    architecture: process.arch,
+    osRelease: os.release(),
+    cpuModel: os.cpus()[0]?.model ?? null,
+    cpuCount: os.cpus().length,
+    postgres: (postgres.rows[0]?.server_version as string | undefined) ?? null,
+    prismaClient: packageVersion('@prisma/client'),
+    prismaCli: packageVersion('prisma'),
+    prismaAdapterPg: packageVersion('@prisma/adapter-pg'),
+    tenancyPackage: (JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as { version: string }).version,
+  };
 }
 
 async function findManyWithManualRls(prisma: PrismaClientLike): Promise<unknown[]> {
@@ -205,115 +210,172 @@ async function runWithTenant<T>(
 }
 
 async function main() {
-  console.log('=== @nestarc/tenancy Benchmark ===\n');
+  const options = parseOptions(process.argv.slice(2));
+  if (options.help) {
+    console.log(`Usage: npm run bench -- --allow-fixture-reset [--output FILE] [--warmup 50] [--iterations 500]
 
-  // --- Setup ---
-  console.log('Setting up database...');
-  const adminClient = new Client({ connectionString: ADMIN_URL });
-  await adminClient.connect();
-
-  const setupSql = fs.readFileSync(
-    path.join(__dirname, '..', 'test', 'e2e', 'setup.sql'),
-    'utf-8',
-  );
-  await adminClient.query(setupSql);
-  await seedBenchmarkRows(adminClient);
-
-  const countResult = await adminClient.query('SELECT count(*) FROM users');
-  console.log(`Total rows: ${countResult.rows[0].count}\n`);
-  await printEnvironment(adminClient);
-
-  // --- Prisma generate ---
-  console.log('Generating Prisma client...');
-  const schemaPath = path.join(__dirname, '..', 'test', 'e2e', 'schema.prisma');
-  execFileSync('npx', ['prisma', 'generate', `--schema=${schemaPath}`], {
-    env: { ...process.env, DATABASE_URL: APP_URL },
-    stdio: 'inherit',
-  });
-
-  const generatedPath = path.join(__dirname, '..', 'test', 'e2e', 'generated', 'client');
-  const { PrismaClient } = require(generatedPath) as { PrismaClient: PrismaClientConstructor };
-
-  const prismaAdmin = createClient(PrismaClient, ADMIN_URL);
-  await prismaAdmin.$connect();
-
-  const prismaAppManual = createClient(PrismaClient, APP_URL);
-  await prismaAppManual.$connect();
-
-  const context = new TenancyContext();
-  const service = new TenancyService(context);
-  const prismaBase = createClient(PrismaClient, APP_URL);
-  const prismaWithExt = prismaBase.$extends(createPrismaTenancyExtension(service));
-  await prismaWithExt.$connect();
-
-  // --- Benchmarks ---
-  const adminAllRows = await runBenchmark(
-    'A) Admin direct findMany (all rows, no RLS)',
-    () => prismaAdmin.user.findMany(),
-  );
-
-  const adminTenantFilter = await runBenchmark(
-    'B) Admin tenant-filtered findMany (WHERE tenant_id, no RLS)',
-    () => prismaAdmin.user.findMany({ where: { tenant_id: TENANT_1 } }),
-  );
-
-  const manualRls = await runBenchmark(
-    'C) app_user manual RLS transaction (set_config + findMany)',
-    () => findManyWithManualRls(prismaAppManual),
-  );
-
-  const extensionRls = await runBenchmark(
-    'D) app_user tenancy extension findMany',
-    () => runWithTenant(context, () => prismaWithExt.user.findMany()),
-  );
-
-  const extensionFindFirst = await runBenchmark(
-    'E) app_user tenancy extension findFirst',
-    () => runWithTenant(context, () => prismaWithExt.user.findFirst()),
-  );
-
-  // --- Results ---
-  const results = [
-    adminAllRows,
-    adminTenantFilter,
-    manualRls,
-    extensionRls,
-    extensionFindFirst,
-  ];
-
-  const extensionOverhead = extensionRls.avgMs - manualRls.avgMs;
-  const extensionP95Overhead = extensionRls.p95Ms - manualRls.p95Ms;
-  const rlsCost = manualRls.avgMs - adminTenantFilter.avgMs;
-
-  console.log('\n' + '='.repeat(78));
-  console.log('RESULTS');
-  console.log('='.repeat(78));
-
-  for (const r of results) {
-    console.log(`\n${r.label}`);
-    console.log(`  Iterations: ${r.iterations} | Rows: ${r.rowCount}`);
-    console.log(`  Avg: ${r.avgMs}ms | P50: ${r.p50Ms}ms | P95: ${r.p95Ms}ms | P99: ${r.p99Ms}ms`);
-    console.log(`  Min: ${r.minMs}ms | Max: ${r.maxMs}ms`);
+Use a disposable database only. The fixture resets users, force_owner_users,
+and countries, and grants permissions to app_user. DATABASE_URL selects the
+admin connection; APP_DATABASE_URL selects the application connection.
+BENCH_OUTPUT and BENCH_ALLOW_FIXTURE_RESET=1 are environment alternatives.
+Output files are created exclusively; an existing file is never overwritten.`);
+    return;
+  }
+  if (!options.allowFixtureReset) {
+    throw new Error('Fixture reset requires --allow-fixture-reset (or BENCH_ALLOW_FIXTURE_RESET=1). Use a disposable database; setup replaces users, force_owner_users, and countries. See benchmarks/README.md.');
+  }
+  if (options.output && fs.existsSync(path.resolve(options.output))) {
+    throw new Error('The benchmark output file already exists. Choose a new --output path.');
   }
 
-  console.log('\n' + '-'.repeat(78));
-  console.log(`Extension overhead vs manual RLS transaction (avg): ${formatDelta(extensionOverhead, manualRls.avgMs)}`);
-  console.log(`Extension overhead vs manual RLS transaction (p95): ${formatSigned(extensionP95Overhead)}ms`);
-  console.log(`RLS + transaction cost vs admin tenant-filtered query (avg): ${formatDelta(rlsCost, adminTenantFilter.avgMs)}`);
-  console.log('Admin all-rows result is context only; it is not used as the extension overhead baseline.');
-  console.log('-'.repeat(78));
+  console.log('=== @nestarc/tenancy Benchmark ===\n');
+  const sourceBefore = snapshotSources(ROOT);
+  const adminClient = new Client({ connectionString: ADMIN_URL });
+  const prismaClients: PrismaClientLike[] = [];
+  try {
+    console.log('Setting up disposable database fixtures...');
+    await adminClient.connect();
+    const setupSql = fs.readFileSync(path.join(ROOT, 'test', 'e2e', 'setup.sql'), 'utf8');
+    await adminClient.query(setupSql);
+    await seedBenchmarkRows(adminClient);
 
-  // --- Cleanup ---
-  await prismaAdmin.$disconnect();
-  await prismaAppManual.$disconnect();
-  await prismaWithExt.$disconnect();
-  await adminClient.query('DROP TABLE IF EXISTS users CASCADE');
-  await adminClient.end();
+    const countResult = await adminClient.query('SELECT count(*) FROM users');
+    const totalRows = Number(countResult.rows[0].count);
+    if (totalRows !== 1005) throw new Error(`Expected 1005 fixture rows, received ${totalRows}`);
+    const environment = await readEnvironment(adminClient);
+    console.log(`Total rows: ${totalRows}\n`);
+    console.log('Environment:');
+    console.log(`  Node: ${environment.node}`);
+    console.log(`  Platform: ${environment.platform} ${environment.architecture}`);
+    console.log(`  CPU: ${environment.cpuModel ?? 'unknown'}`);
+    console.log(`  PostgreSQL: ${environment.postgres ?? 'unknown'}`);
+    console.log(`  Prisma Client: ${environment.prismaClient ?? 'unknown'}`);
+    console.log(`  Warmup: ${options.warmup} | Iterations: ${options.iterations}\n`);
 
+    console.log('Generating Prisma client...');
+    const schemaPath = path.join(ROOT, 'test', 'e2e', 'schema.prisma');
+    execFileSync('npx', ['prisma', 'generate', `--schema=${schemaPath}`], {
+      cwd: ROOT,
+      env: { ...process.env, DATABASE_URL: APP_URL },
+      stdio: 'inherit',
+    });
+
+    const generatedPath = path.join(ROOT, 'test', 'e2e', 'generated', 'client');
+    const { PrismaClient } = require(generatedPath) as { PrismaClient: PrismaClientConstructor };
+    const prismaAdmin = createClient(PrismaClient, ADMIN_URL);
+    prismaClients.push(prismaAdmin);
+    await prismaAdmin.$connect();
+    const prismaAppManual = createClient(PrismaClient, APP_URL);
+    prismaClients.push(prismaAppManual);
+    await prismaAppManual.$connect();
+    const context = new TenancyContext();
+    const service = new TenancyService(context);
+    const prismaBase = createClient(PrismaClient, APP_URL);
+    prismaClients.push(prismaBase);
+    const prismaWithExt = prismaBase.$extends(createPrismaTenancyExtension(service));
+    await prismaWithExt.$connect();
+
+    const measuredAt = new Date().toISOString();
+    const run = <T>(id: string, label: string, task: BenchTask<T>, rows: number) =>
+      runBenchmark(id, label, task, options.warmup, options.iterations, rows);
+    const adminAllRows = await run(
+      'A', 'A) Admin direct findMany (all rows, no RLS)',
+      () => prismaAdmin.user.findMany(), 1005,
+    );
+    const adminTenantFilter = await run(
+      'B', 'B) Admin tenant-filtered findMany (WHERE tenant_id, no RLS)',
+      () => prismaAdmin.user.findMany({ where: { tenant_id: TENANT_1 } }), 402,
+    );
+    const manualRls = await run(
+      'C', 'C) app_user manual RLS transaction (set_config + findMany)',
+      () => findManyWithManualRls(prismaAppManual), 402,
+    );
+    const extensionRls = await run(
+      'D', 'D) app_user tenancy extension findMany',
+      () => runWithTenant(context, () => prismaWithExt.user.findMany()), 402,
+    );
+    const extensionFindFirst = await run(
+      'E', 'E) app_user tenancy extension findFirst',
+      () => runWithTenant(context, () => prismaWithExt.user.findFirst()), 1,
+    );
+    const finishedAt = new Date().toISOString();
+    const sourceAfter = snapshotSources(ROOT);
+    const sourcesChangedDuringRun = JSON.stringify(sourceBefore.sha256) !== JSON.stringify(sourceAfter.sha256)
+      || sourceBefore.gitCommit !== sourceAfter.gitCommit;
+    const results = [adminAllRows, adminTenantFilter, manualRls, extensionRls, extensionFindFirst];
+    const extensionOverhead = extensionRls.avgMs - manualRls.avgMs;
+    const extensionP95Overhead = extensionRls.p95Ms - manualRls.p95Ms;
+    const rlsCost = manualRls.avgMs - adminTenantFilter.avgMs;
+    const report = {
+      schemaVersion: 1,
+      benchmark: '@nestarc/tenancy RLS extension overhead',
+      measuredAt,
+      finishedAt,
+      source: { before: sourceBefore, after: sourceAfter, sourcesChangedDuringRun },
+      environment,
+      parameters: {
+        warmupPerScenario: options.warmup,
+        iterationsPerScenario: options.iterations,
+        concurrency: 1,
+        scenarioOrder: results.map((result) => result.id),
+        fixtureRows: totalRows,
+        tenantRows: 402,
+        tenantCount: 3,
+        dbSettingKey: DEFAULT_DB_SETTING_KEY,
+        extensionOptions: 'defaults',
+        durationUnit: 'milliseconds',
+        percentileMethod: 'nearest-rank',
+        timingScope: 'awaited client call including network, transaction, and returned rows; excludes row-count assertion',
+      },
+      scenarios: results,
+      comparisons: {
+        extensionVsManualRls: {
+          baselineScenario: 'C', comparedScenario: 'D',
+          avgDeltaMs: extensionOverhead,
+          avgDeltaPercent: manualRls.avgMs === 0 ? null : (extensionOverhead / manualRls.avgMs) * 100,
+          p95DeltaMs: extensionP95Overhead,
+        },
+        manualRlsVsAdminTenantFilter: {
+          baselineScenario: 'B', comparedScenario: 'C', avgDeltaMs: rlsCost,
+          avgDeltaPercent: adminTenantFilter.avgMs === 0 ? null : (rlsCost / adminTenantFilter.avgMs) * 100,
+        },
+      },
+    };
+
+    console.log('\n' + '='.repeat(78));
+    console.log('RESULTS');
+    console.log('='.repeat(78));
+    for (const result of results) {
+      console.log(`\n${result.label}`);
+      console.log(`  Iterations: ${result.iterations} | Rows: ${result.rowCount}`);
+      console.log(`  Avg: ${roundMs(result.avgMs)}ms | P50: ${roundMs(result.p50Ms)}ms | P95: ${roundMs(result.p95Ms)}ms | P99: ${roundMs(result.p99Ms)}ms`);
+      console.log(`  Min: ${roundMs(result.minMs)}ms | Max: ${roundMs(result.maxMs)}ms`);
+    }
+    console.log('\n' + '-'.repeat(78));
+    console.log(`Extension overhead vs manual RLS transaction (avg): ${formatDelta(extensionOverhead, manualRls.avgMs)}`);
+    console.log(`Extension overhead vs manual RLS transaction (p95): ${formatSigned(extensionP95Overhead)}ms`);
+    console.log(`RLS + transaction cost vs admin tenant-filtered query (avg): ${formatDelta(rlsCost, adminTenantFilter.avgMs)}`);
+    console.log('Admin all-rows result is context only; it is not used as the extension overhead baseline.');
+    console.log('Scenario order is fixed; small deltas can be measurement noise. This does not isolate AsyncLocalStorage cost.');
+    if (sourcesChangedDuringRun) console.log('Source files changed during this run; rerun with stable sources before using these numbers.');
+    console.log('-'.repeat(78));
+    if (options.output) {
+      writeReport(options.output, report);
+      console.log(`\nJSON result: ${path.resolve(options.output)}`);
+    } else {
+      console.log('\nNo JSON saved. Use --output FILE (or BENCH_OUTPUT) to retain raw samples and provenance.');
+    }
+  } finally {
+    await Promise.allSettled(prismaClients.map((client) => client.$disconnect()));
+    // The disposable database owns the fixtures and role; drop it after use.
+    await adminClient.end();
+  }
   console.log('\nDone.');
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
+main().catch((error: unknown) => {
+  // Connection errors can include supplied connection strings; omit their details.
+  const message = error instanceof Error ? error.message : 'Unknown benchmark failure';
+  console.error(message.replace(/postgres(?:ql)?:\/\/[^\s"']+/gi, '[redacted database URL]'));
+  process.exitCode = 1;
 });

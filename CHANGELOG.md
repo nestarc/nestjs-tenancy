@@ -6,6 +6,28 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Let `PathTenantExtractor` use a raw request's `url` when `path` is absent or
+  empty, preserving adapter path precedence, route matching, and decoding.
+- Corrected authentication middleware ordering examples, public-type usage,
+  identifier validators, cache TTL units, and the distinction between skipping
+  client extension behavior and bypassing PostgreSQL RLS.
+
+### Documentation
+
+- Reorganized the README around a complete executable Nest/Prisma quickstart
+  and task-specific reference pages, with separate consumer-agent and maintainer
+  entry points. Include the current usage guides and example sources in the
+  next package artifact; generated example clients remain excluded.
+- Added CI validation of actual Markdown snippets and the example's strict
+  types, authentication ordering, PostgreSQL tenant isolation, and live doctor
+  checks. Removed unsupported one-line/zero-overhead/blanket SQL-safety claims.
+- Added benchmark JSON provenance and raw samples. Benchmark fixture setup now
+  requires `--allow-fixture-reset` or `BENCH_ALLOW_FIXTURE_RESET=1`; use a
+  disposable database. Historical measurements without raw artifacts are no
+  longer the current performance headline.
+
 ### Tests
 
 - Advanced the legacy and modern published-only ecosystem locks to

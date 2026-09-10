@@ -1,0 +1,24 @@
+# @nestarc/tenancy
+
+> NestJS tenant context and Prisma integration for PostgreSQL Row Level Security.
+
+Documented API line: 0.16.x. Verify the consumer application's installed version. Current-branch source and examples may include unreleased changes.
+
+## Start here
+
+- [Package README](./README.md)
+- [Consumer integration guide](./docs/usage-for-agents.md)
+- [Runnable quickstart](./examples/quickstart/README.md)
+- [Current documentation index](./docs/README.md)
+- [Official documentation](https://nestarc.dev/packages/tenancy/)
+- [Published API reference](https://nestarc.dev/api/tenancy/)
+
+## Essential boundaries
+
+- Authenticate before tenant extraction and authorize the principal for the selected tenant.
+- Apply RLS policies and use an application DB role without superuser/BYPASSRLS privileges.
+- Shared models and explicit no-context helpers skip client behavior, not database RLS.
+- Use the transaction helper for raw SQL and interactive transactions.
+- RPC validators are explicit during 0.x; caches and messages require their own tenant scope.
+
+This is a convenience index for clients that choose to read it. It does not guarantee discovery, ranking, or citations. Repository maintainers can use AGENTS.md; application consumers should use the integration guide.
