@@ -6,6 +6,8 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-09-10
+
 ### Fixed
 
 - Let `PathTenantExtractor` use a raw request's `url` when `path` is absent or
@@ -18,8 +20,8 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 - Reorganized the README around a complete executable Nest/Prisma quickstart
   and task-specific reference pages, with separate consumer-agent and maintainer
-  entry points. Include the current usage guides and example sources in the
-  next package artifact; generated example clients remain excluded.
+  entry points. The package includes current usage guides and example sources;
+  generated example clients remain excluded.
 - Added CI validation of actual Markdown snippets and the example's strict
   types, authentication ordering, PostgreSQL tenant isolation, and live doctor
   checks. Removed unsupported one-line/zero-overhead/blanket SQL-safety claims.

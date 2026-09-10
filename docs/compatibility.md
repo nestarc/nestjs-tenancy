@@ -13,7 +13,7 @@ the [security policy](../SECURITY.md) for reporting and response targets.
 Package compatibility ranges and repository verification are related, but
 they are not the same claim:
 
-| Area | v0.16.0 contract | Current repository evidence |
+| Area | v0.16.x contract | Current repository evidence |
 |------|--------------------|----------------------------------------|
 | Node.js | `^22.13.0 \|\| ^24.0.0` | Lint, unit/coverage, and build run on exact 22.13.0, the current Node 22 release, and the current Node 24 release. Database and infrastructure jobs run on current Node 22; publishing runs on current Node 24. |
 | NestJS | Peer range `^10.0.0 \|\| ^11.0.0` | A strict, isolated packed-tarball consumer matrix covers exact NestJS 10.4.22 and 11.2.1 across both supported Prisma majors on current Node 22. The locked primary graph uses NestJS 11.2.1; separate fully published ecosystem lanes preserve exact NestJS 10.4.20 for the legacy graph and use exact 11.2.1 for the modern graph. |

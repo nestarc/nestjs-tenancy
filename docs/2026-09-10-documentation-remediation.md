@@ -37,7 +37,9 @@ This is the fixed implementation checklist for the findings in [the audit](./202
 - Official site `npm run docs:check`: 79 tests and 13-package generated API validation passed. Final build/output validation: 188 public pages / 189 HTML files. The 13 standalone extractor/lifecycle snippets passed strict TypeScript. Immutable-source tenancy API regeneration and idempotent editorial correction passed; original source provenance stayed unchanged.
 - All 24 site files applied to the original site repository were byte-compared with the tested scratch files. Both repositories pass `git diff --check`.
 
-## Source and publication state
+## Source and publication state at remediation completion
+
+This section records the state before the subsequent 0.16.1 release work. Release publication and deployment are separate from the completed implementation checklist above.
 
 Package changes are in the local `nestjs-tenancy` worktree, based on commit `91b9fb767a335b15356d4d99069c1619641b8278`. Official-site changes are applied to the separate local `nestarc.dev` worktree. No commit, push, npm publication, or site deployment was performed. Published npm version 0.16.0 and the live website therefore do not yet include these local source changes.
 

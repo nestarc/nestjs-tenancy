@@ -63,7 +63,7 @@ TenancyModule.forRoot({
 // /api/tenants/acme/resources → 'acme'
 ```
 
-The repository source accepts `request.path`, falling back to `request.url`, and removes query/hash suffixes before matching. This URL fallback is an **unreleased change**: published `0.16.0` requires `request.path`. If your adapter supplies only a raw URL on that version, populate `path` before tenant middleware (for an origin-form URL, take the portion before `?` or `#`) or provide a custom extractor. Express normally supplies `path` already.
+Starting in **0.16.1**, the extractor accepts `request.path`, falling back to `request.url`, and removes query/hash suffixes before matching. Version `0.16.0` requires `request.path`: if your adapter supplies only a raw URL on that version, populate `path` before tenant middleware (for an origin-form URL, take the portion before `?` or `#`) or provide a custom extractor. Express normally supplies `path` already.
 
 ### Composite (Fallback Chain)
 
@@ -160,7 +160,7 @@ The public `TenancyRequest`/`TenancyResponse` interfaces avoid an Express depend
 | --- | --- |
 | Header and JWT | `headers`; header names are normalized to lowercase by Node HTTP adapters |
 | Subdomain | `hostname`; the extractor does not derive it from a raw `Host` header, so raw-request middleware must populate it using the application's trusted host/proxy rules |
-| Path | Current source: `path`, falling back to `url`, with query/hash suffixes removed; published `0.16.0` needs `path` populated as described [above](#path-parameter) |
+| Path | Version `0.16.1` onward: `path`, falling back to `url`, with query/hash suffixes removed; `0.16.0` needs `path` populated as described [above](#path-parameter) |
 | Cookie/custom principal | Upstream parser/authentication must populate the custom field on the same object seen by tenant middleware |
 | Direct response in a hook | Use the response API actually supplied by the adapter; public response methods are optional |
 
