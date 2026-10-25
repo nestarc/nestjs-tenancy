@@ -1,4 +1,4 @@
-# PostgreSQL RLS operations and CLI
+# Runtime security, PostgreSQL RLS operations, and CLI
 
 [Package overview](../README.md) · [Documentation index](./README.md) · [Runnable example](../examples/quickstart/README.md)
 
@@ -66,6 +66,97 @@ empty tenant ID. A missing or reset setting therefore matches no row.
 - **SQL Injection**: The Prisma extension uses `set_config()` with bind parameters via `$executeRaw` tagged template. This binds the setting key and tenant value used by this package. It does not make application raw SQL or dynamically constructed queries injection-safe. HTTP tenant IDs are validated by the middleware (UUID-like format by default); RPC validation is explicit during 0.x.
 - **Transaction-scoped**: `set_config(key, value, TRUE)` is equivalent to `SET LOCAL` and is scoped to the database transaction. The supported PgBouncer transaction-mode matrix verifies A → B → no-context isolation on reused physical backends.
 - **Custom validators**: Reuse a `TenantIdValidator` in HTTP module options and RPC interceptor options when tenant IDs are not UUIDs or require an allow-list. Format validation does not authenticate or authorize the caller or producer.
+
+### Runtime and HTTP parser security
+
+Use a patched Node.js binary in development, CI, containers, and application
+processes. The 0.16.2 minimum, `^22.23.4 || ^24.22.1`, includes the
+security change for the Brotli decoder issue
+[CVE-2026-111497 (HTTP2Shell)](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases).
+Published `0.16.1` still declares its original
+lower engine range; upgrade the runtime when using that artifact too. Node.js
+26 support remains undeclared.
+
+Verify the process actually uses the selected runtime:
+
+```sh
+node --version
+node -p process.execPath
+npm ls body-parser --all
+```
+
+With nvm, run `nvm install` and `nvm use` in the repository to select the
+`.nvmrc` version before running npm commands. Installing a patched binary
+does not replace an older binary selected earlier in `PATH`. Rebuild and
+redeploy container images and restart application processes as appropriate;
+updating a lockfile, `@types/node`, or npm packages does not patch Node's
+embedded Brotli decoder. An embedded Brotli version string alone also does
+not identify whether a distributor has backported the fix.
+
+HTTP2Shell concerns untrusted Brotli decoding, including `Content-Encoding: br`,
+and does not require HTTP/2. Tenant validation, PostgreSQL RLS, and
+parsed-body size limits do not repair native decoder memory safety. Check
+inbound parsers, outbound HTTP clients, and proxies that decompress untrusted
+data. Quickstart authentication runs before its default parser, but tenant
+membership checks run afterward; its public demo credentials are not a
+production access control.
+
+Separately, [CVE-2026-111181](https://github.com/expressjs/body-parser/security/advisories/GHSA-27r3-jxmh-p828)
+affects compressed request handling in `body-parser`. Use 2.4.0 or later in
+the 2.x line, or 1.20.9 or later in the 1.x line. The repository applies these
+versions through focused overrides in its root and ecosystem fixtures.
+Consuming applications must update and verify their own resolved parser
+graph: repository overrides are not installed as consumer policy. If an
+application does not accept compressed request bodies, configuring its
+parsers with `inflate: false` rejects them before decompression; this does not
+protect other decoding paths or replace runtime updates.
+
+`npm audit --omit=dev` covers the production npm graph, not Node's native
+libraries. Audit development dependencies too, because this repository's
+runnable examples use its development HTTP stack. Neither a clean npm audit
+nor a passing tenant-isolation test establishes runtime patch status.
+
+### Deploying the security update
+
+This sequence applies to applications adopting 0.16.2. Patch the runtime and
+parser even if the application remains on published
+`0.16.1`; separator validation takes effect when installing a package build
+that contains the new check. The runtime/parser update itself does not
+require changing RLS policies or the database schema.
+
+1. **Inventory the deployed application.** Record its installed tenancy and
+   parser versions with `npm ls @nestarc/tenancy body-parser --all`. Check the
+   Node version and executable in the actual service/container startup
+   environment, including workers and scheduled jobs, rather than only in a
+   developer shell. An empty parser tree means that dependency is absent; it
+   does not establish that other decompression paths are safe.
+2. **Patch Node and the application's dependency graph.** Select a supported
+   patched Node release in build jobs and runtime images. Update the framework
+   or application-owned dependencies/overrides so every installed `body-parser`
+   copy is at least 1.20.9 in the 1.x line or 2.4.0 in the 2.x line. Keep each
+   parser's major line compatible with its caller. Review and commit the
+   application's lockfile; installing tenancy alone does not apply this
+   repository's overrides or `.npmrc` to the consumer.
+3. **Prepare resource-key migration before upgrading tenancy.** Inventory
+   `TenantResourceKey` options. Default `:` and other valid separators keep
+   their key format. For empty or ASCII-digit-only separators, follow the
+   [migration procedure](./integrations.md#migrating-tenant-resource-key-separators)
+   before deploying code that constructs the helper.
+4. **Build and verify the candidate.** Install the reviewed lockfile with
+   `npm ci` on the patched runtime, rebuild the application/image, and run its
+   HTTP, worker, and tenant-isolation checks in staging. Include accepted
+   compressed requests when the application supports them, tenant A/B and
+   missing-context checks, and separate cache values for different tenants.
+   Audit both production and development dependencies and review unresolved
+   results; npm audit does not cover the embedded Node decoder.
+5. **Replace running processes and check the result.** Restart or redeploy all
+   replicas and workers, then verify the running Node executable/version,
+   installed parser graph, application health, and tenant-scoped behavior.
+   A rebuilt image or edited lockfile alone does not replace an old process.
+
+Keep a rollback build that uses the patched Node/parser versions and the
+validated key configuration. Reverting unrelated application code must not
+restore the vulnerable runtime or reads/writes through ambiguous old keys.
 
 ### RLS Operational Notes
 

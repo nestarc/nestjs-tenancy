@@ -6,8 +6,8 @@ files or searches for sibling repositories.
 
 ## Explicit artifact modes
 
-The default command and the hosted CI/release job use the fully published,
-known-good tuple:
+The default command and the hosted CI/release job use the fully published
+tuple:
 
 ```bash
 npm run test:e2e:ecosystem
@@ -59,3 +59,12 @@ RBAC, Outbox, Jobs, and Webhook; supported local Node 24 runs are also valid.
 The flow covers API key → tenancy → RBAC → Prisma/RLS + Outbox → Jobs → Webhook
 HTTP. The audit-log/soft-delete mega fixture remains owned by the audit-log
 repository and is intentionally not duplicated here.
+
+The current fixture applies a focused `body-parser: 1.20.9` override for
+CVE-2026-111181. Its direct NestJS, Prisma, and Nestarc versions and published
+package integrity checks remain unchanged. In particular, the published
+`@nestarc/tenancy@0.16.1` lock entry keeps that artifact's original engine
+metadata. Run the fixture on patched Node.js 22.23.4+ or 24.22.1+ within the
+respective major line, as required by tenancy 0.16.2. The refreshed parser
+graph is part of the committed baseline against which local-artifact mode
+checks unrelated dependency drift.

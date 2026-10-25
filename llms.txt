@@ -2,13 +2,14 @@
 
 > NestJS tenant context and Prisma integration for PostgreSQL Row Level Security.
 
-Documented API line: 0.16.x. Verify the consumer application's installed version. Current-branch source and examples may include unreleased changes.
+Documented version: 0.16.2. Verify the consumer application's installed version; published 0.16.1 does not contain the current security changes.
 
 ## Start here
 
 - [Package README](./README.md)
 - [Consumer integration guide](./docs/usage-for-agents.md)
 - [Runnable quickstart](./examples/quickstart/README.md)
+- [Security upgrade and deployment sequence](./docs/operations.md#deploying-the-security-update)
 - [Current documentation index](./docs/README.md)
 - [Official documentation](https://nestarc.dev/packages/tenancy/)
 - [Published API reference](https://nestarc.dev/api/tenancy/)

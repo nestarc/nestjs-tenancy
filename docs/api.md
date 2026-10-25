@@ -139,6 +139,12 @@ export class HealthController {
 | Kafka, Bull, or gRPC context | Policy-dependent | Configure `TenantContextInterceptor`; the HTTP guard does not handle RPC |
 | Explicit Kafka, Bull, or gRPC validator returns/resolves `false` | Throws | `BadRequestException: Invalid tenant ID format`; handler is not invoked |
 | Explicit Kafka, Bull, or gRPC validator throws/rejects | Propagates | Original validator error; handler is not invoked |
+| Empty or ASCII-digit-only `TenantResourceKey` separator (0.16.2) | Throws at construction | `Error: [TenantResourceKey] separator must contain at least one non-digit character` |
+
+The separator error is a configuration error, not an HTTP response or a
+missing-context diagnostic. Follow the
+[resource-key migration](./integrations.md#migrating-tenant-resource-key-separators)
+before adopting the 0.16.2 constructor validation.
 
 ## Error Hierarchy
 

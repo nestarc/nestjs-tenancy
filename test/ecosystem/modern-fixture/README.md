@@ -20,6 +20,14 @@ The E2E command enables Node's VM modules for Prisma 7's generated query
 compiler, whose CommonJS client loads the PostgreSQL runtime through dynamic
 imports while running inside Jest.
 
+The current fixture applies a focused `body-parser: 2.4.0` override for
+CVE-2026-111181. Direct NestJS, Prisma, and Nestarc versions and all published
+artifact integrity checks remain unchanged. The published
+`@nestarc/tenancy@0.16.1` lock entry retains its original engine metadata;
+tenancy 0.16.2 raises its runtime minimum.
+Run this fixture on patched Node.js 22.23.4+ or 24.22.1+ within the respective
+major line, regardless of that historical metadata.
+
 Local runs start PostgreSQL under a unique Compose project with a
 Docker-assigned host port. Cleanup targets only that project, so a concurrent
 legacy ecosystem run cannot lose its database when the modern lane finishes.

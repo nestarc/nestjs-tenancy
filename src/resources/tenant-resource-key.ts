@@ -8,7 +8,11 @@ export interface TenantResourceKeyOptions {
   resource?: string;
   /** Prefix for generated keys. @default 'tenant' */
   prefix?: string;
-  /** Separator between encoded key parts. @default ':' */
+  /**
+   * Separator between encoded key parts. Must contain a character other than
+   * an ASCII digit (0-9) so the tenant length prefix remains unambiguous.
+   * @default ':'
+   */
   separator?: string;
   /** Opt-in missing-context diagnostics. */
   diagnostics?: TenantContextDiagnostics;
@@ -25,6 +29,11 @@ export class TenantResourceKey {
   ) {
     this.prefix = options.prefix ?? 'tenant';
     this.separator = options.separator ?? ':';
+    if (!/[^0-9]/.test(this.separator)) {
+      throw new Error(
+        '[TenantResourceKey] separator must contain at least one non-digit character',
+      );
+    }
   }
 
   create(key: string): string | null {

@@ -272,6 +272,39 @@ const search = new TenantSearch(new TenancyContext(), searchAdapter, {
 
 With `ignore` or `warn`, a missing resource key/search scope returns `null` and no Redis/search operation is performed. With `throw`, it fails before the adapter or resource is accessed.
 
+### Migrating tenant resource key separators
+
+**0.16.2 security change:** `TenantResourceKey` rejects a
+`separator` that is empty or consists only of ASCII digits (`0`–`9`). Such separators make the
+decimal tenant-length boundary ambiguous for variable-length tenant IDs.
+The constructor throws an `Error` with the message
+`[TenantResourceKey] separator must contain at least one non-digit character`
+before a key is generated, including when missing-context diagnostics use
+`ignore` or `warn`.
+Use the default `:` or a separator containing a non-digit, such as `|` or
+`1:`. Existing valid separators keep their exact generated key format; UUID
+tenant IDs with the default `:` need no key migration.
+
+For an application using a rejected separator:
+
+1. Choose a valid separator and update every reader/writer using that key
+   namespace, including workers, before upgrading tenancy.
+2. Coordinate the rollout so old processes stop reading and writing ambiguous
+   keys. Do not add a fallback that reads the old key on a new-key cache miss.
+3. Invalidate only the affected disposable cache namespace and repopulate it
+   from tenant-authorized data. For durable resources, migrate from records
+   with independently verified tenant ownership; the ambiguous key string
+   cannot reliably identify its original tenant. Do not bulk-rename keys by
+   splitting that string or clear unrelated tenants' data.
+4. Verify that two tenants using the same logical resource key remain
+   separate, then retire the old namespace through the application's normal
+   retention process.
+
+This restriction is for `TenantResourceKey`; `TenantCacheInterceptor` already
+uses a fixed internal colon for its tenant-length prefix. See the
+[deployment sequence](./operations.md#deploying-the-security-update) for the
+runtime and parser changes that accompany this release.
+
 ## Tenant-Aware Caching
 
 PostgreSQL RLS protects database rows, but it does not protect Redis, in-memory response caches, or other application cache stores. If two tenants hit the same route and the cache key is only the URL, an unscoped response cache can leak one tenant's data to another tenant.

@@ -6,7 +6,7 @@ This guide is for coding assistants integrating the package into a consumer appl
 npm ls @nestarc/tenancy @nestjs/core @prisma/client
 ```
 
-The package supports Node `^22.13.0 || ^24.0.0`, NestJS 10/11, and Prisma 6/7. Use the [compatibility contract](./compatibility.md) for exact tested combinations. Source examples on the repository's current branch may include unreleased changes; verify the installed package rather than assuming branch contents are published.
+Version 0.16.2 requires Node `^22.23.4 || ^24.22.1`, NestJS 10/11, and Prisma 6/7. Published `0.16.1` retains `^22.13.0 || ^24.0.0` metadata. Upgrade the actual application runtime regardless of that older metadata, and inspect the application's own HTTP parser dependencies using the [security guidance](./operations.md#runtime-and-http-parser-security). Repository npm overrides do not propagate to installed consumers. Use the [compatibility contract](./compatibility.md) for exact tested combinations. Verify the installed package rather than assuming branch contents are published.
 
 ## Start with a working example
 

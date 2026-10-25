@@ -22,7 +22,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - node-version: '22.13.0'
+          - node-version: '22.23.4'
             lane: minimum
             check-latest: false
           - node-version: '22'

@@ -7,6 +7,9 @@
     "typecheck": "tsc --noEmit",
     "verify:packages": "node scripts/verify-packages.cjs && npm ls @nestarc/tenancy @nestarc/api-keys @nestarc/rbac @nestarc/jobs @nestarc/outbox @nestarc/webhook --all"
   },
+  "overrides": {
+    "body-parser": "1.20.9"
+  },
   "dependencies": {
     "@nestarc/api-keys": "0.3.1",
     "@nestarc/jobs": "0.3.1",

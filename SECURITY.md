@@ -13,14 +13,23 @@ supported line.
 | 0.15.x and earlier    | ❌ Upgrade to 0.16.x |
 
 Package security support and upstream runtime maintenance are separate.
-The supported 0.16.x line declares `^22.13.0 || ^24.0.0`; CI and release source
-gates cover exact Node.js 22.13.0, the current Node.js 22 release, and the
-current Node.js 24 release. Older 0.15.x artifacts retain their published
-Node.js >= 20.19.0 metadata, but Node.js 20 is upstream EOL and is not supported
+Version `0.16.2` requires `^22.23.4 || ^24.22.1`. CI and release source gates
+target exact Node.js 22.23.4, the current
+Node.js 22 release, and the current Node.js 24 release. Published `0.16.1`
+retains its original `^22.13.0 || ^24.0.0` metadata. Upgrade the actual runtime
+even when installing that published artifact. Older 0.15.x artifacts retain
+their published Node.js >= 20.19.0 metadata, but Node.js 20 is upstream EOL and is not supported
 by 0.16.x. Node.js 26 support is not declared. See the README's
 [support and compatibility](./README.md#support-and-compatibility) section for
 the declared NestJS and Prisma ranges, the exact strict-consumer combinations,
 and the separate database behavior lanes exercised by CI.
+
+The new minimum includes the Node.js fix for the Brotli decoder vulnerability
+[CVE-2026-111497](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases),
+also called HTTP2Shell. Untrusted Brotli decompression can be reached without
+HTTP/2. `npm audit` and package updates do not patch the Node binary. Consuming
+applications must also update their own HTTP parser graph; see
+[runtime and HTTP parser security](./docs/operations.md#runtime-and-http-parser-security).
 
 ## Reporting a Vulnerability
 

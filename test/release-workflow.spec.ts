@@ -276,14 +276,33 @@ describe('shared validation workflow', () => {
     fs.readFileSync(packageManifestPath, 'utf8'),
   ) as {
     devDependencies: Record<string, string>;
+    engines: { node: string };
     scripts: Record<string, string>;
   };
   const packageLock = JSON.parse(fs.readFileSync(packageLockPath, 'utf8')) as {
     packages: Record<
       string,
-      { devDependencies?: Record<string, string>; version?: string }
+      { devDependencies?: Record<string, string>; engines?: { node: string }; version?: string }
     >;
   };
+
+  it('excludes unpatched and unsupported runtimes from the installation contract', () => {
+    const { satisfies } = require('semver') as {
+      satisfies(version: string, range: string): boolean;
+    };
+    const range = packageManifest.engines.node;
+    expect(packageLock.packages[''].engines?.node).toBe(range);
+    for (const version of ['20.19.0', '22.23.3', '23.0.0', '24.22.0', '25.0.0', '26.12.1']) {
+      expect(satisfies(version, range)).toBe(false);
+    }
+    for (const version of ['22.23.4', '22.24.0', '24.22.1', '24.23.0']) {
+      expect(satisfies(version, range)).toBe(true);
+    }
+    expect(fs.readFileSync(path.join(process.cwd(), '.npmrc'), 'utf8'))
+      .toMatch(/^engine-strict=true$/m);
+    const selected = fs.readFileSync(path.join(process.cwd(), '.nvmrc'), 'utf8').trim();
+    expect(satisfies(selected, range)).toBe(true);
+  });
 
   it('keeps the earlier validation inventory and requires ecosystem and documentation gates', () => {
     expect(readJobIds(ciWorkflow)).toEqual([...REQUIRED_VALIDATION_JOBS]);
@@ -335,7 +354,7 @@ describe('shared validation workflow', () => {
       'ecosystem-modern-e2e': 1,
     };
 
-    expect(sourceVersions).toEqual(['22.13.0', '22', '24']);
+    expect(sourceVersions).toEqual(['22.23.4', '22', '24']);
     expect(sourceLanes).toEqual(['minimum', 'current-22', 'current-24']);
     expect(compatLanes).toEqual([
       'nest10-prisma6',

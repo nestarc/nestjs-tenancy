@@ -6,6 +6,41 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.16.2] - 2026-10-26
+
+### Upgrade notes
+
+- The higher Node minimum and rejection of empty/ASCII-digit-only resource-key
+  separators tighten compatibility. Select a patched Node runtime and migrate
+  affected key configuration before deploying 0.16.2. Valid existing
+  key formats and NestJS/Prisma peer ranges remain unchanged.
+- Follow the [deployment sequence](./docs/operations.md#deploying-the-security-update)
+  for application-owned parser updates, key migration, process replacement,
+  and verification. Published `0.16.1` does not contain these source changes;
+  runtime and parser updates should be applied independently of publication.
+
+### Security
+
+- Raised the current source Node.js requirement to `^22.23.4 || ^24.22.1`
+  for CVE-2026-111497 (HTTP2Shell), and aligned the minimum CI lane, nvm
+  selection, and repository engine-strict installs. Applications must select
+  and deploy a patched Node binary; published `0.16.1` metadata is unchanged.
+- Added focused `body-parser` overrides for CVE-2026-111181: 2.4.0 in the
+  root and modern ecosystem graph, and 1.20.9 in the legacy ecosystem graph.
+  Published Nestarc artifacts and their integrity checks remain unchanged.
+  Consuming applications must update their own runtime and parser graph.
+- Rejected empty and ASCII-digit-only `TenantResourceKey` separators, which
+  could make distinct variable-length tenant/resource pairs collide. Existing
+  valid separators retain their exact key format. Applications using rejected
+  values must select a valid separator and retire their old ambiguous keys.
+
+### Documentation
+
+- Added a consumer rollout and resource-key migration procedure, constructor
+  error reference, and maintainer release checklist tied to the CI and release
+  provenance gates. Site guidance and generated API provenance are tracked
+  separately from package publication.
+
 ### Tests
 
 - Advanced both published-only ecosystem fixtures to the verified npm

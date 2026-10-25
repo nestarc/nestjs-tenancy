@@ -2,7 +2,7 @@
 
 [Package overview](../README.md) · [Documentation index](./README.md) · [Runnable example](../examples/quickstart/README.md)
 
-This reference describes the `@nestarc/tenancy` 0.16.x contract. Declared peer ranges and exact repository test targets have different scopes.
+This reference describes the `@nestarc/tenancy` 0.16.2 contract. Declared peer ranges and exact repository test targets have different scopes.
 
 ## Support and Compatibility
 
@@ -13,9 +13,9 @@ the [security policy](../SECURITY.md) for reporting and response targets.
 Package compatibility ranges and repository verification are related, but
 they are not the same claim:
 
-| Area | v0.16.x contract | Current repository evidence |
+| Area | 0.16.2 contract | Current repository evidence |
 |------|--------------------|----------------------------------------|
-| Node.js | `^22.13.0 \|\| ^24.0.0` | Lint, unit/coverage, and build run on exact 22.13.0, the current Node 22 release, and the current Node 24 release. Database and infrastructure jobs run on current Node 22; publishing runs on current Node 24. |
+| Node.js | `^22.23.4 \|\| ^24.22.1` (0.16.2 security minimum) | CI configures lint, unit/coverage, and build on exact 22.23.4, the current Node 22 release, and the current Node 24 release. Database and infrastructure jobs use current Node 22; publishing uses current Node 24. |
 | NestJS | Peer range `^10.0.0 \|\| ^11.0.0` | A strict, isolated packed-tarball consumer matrix covers exact NestJS 10.4.22 and 11.2.1 across both supported Prisma majors on current Node 22. The locked primary graph uses NestJS 11.2.1; separate fully published ecosystem lanes preserve exact NestJS 10.4.20 for the legacy graph and use exact 11.2.1 for the modern graph. |
 | Prisma | Peer range `^6.0.0 \|\| ^7.0.0` | The packed consumer matrix covers exact Prisma 6.19.3 and 7.10.0 with each supported NestJS major. The locked primary and direct PostgreSQL lanes use 7.10.0, the PgBouncer matrix uses both exact versions, and separate fully published ecosystem lanes cover the exact legacy 6.19.3 and modern 7.10.0 graphs. |
 
@@ -38,13 +38,24 @@ ranges. Each run intentionally resolves a fresh transitive graph so CI detects
 upstream install drift; it is not a byte-for-byte frozen dependency snapshot.
 Prisma data-path behavior remains the responsibility of the direct
 PostgreSQL and Prisma 6/7 PgBouncer lanes rather than being duplicated in every
-install-only consumer lane. The supported 0.16.x line declares Node.js
-`^22.13.0 || ^24.0.0`. Older 0.15.x artifacts retain their published
+install-only consumer lane. Version 0.16.2 raises the Node.js requirement to
+`^22.23.4 || ^24.22.1`. Published `0.16.1`
+and its ecosystem lock entries retain `^22.13.0 || ^24.0.0`. That historical
+metadata does not make an older runtime safe; upgrade the running Node binary
+for the [Brotli security fix](./operations.md#runtime-and-http-parser-security).
+Older 0.15.x artifacts retain their published
 Node.js `>=20.19.0` metadata, but Node.js 20 is
 [upstream EOL](https://nodejs.org/en/about/previous-releases) and is not
 supported by 0.16.x. Node 20 consumers must upgrade their runtime or remain on
 the unsupported 0.15.x line. Node 26 support is not yet declared and requires
 separate validation.
+
+For local repository work, `.nvmrc` selects Node.js 24.22.1 and `.npmrc` enables
+`engine-strict`. With nvm, run `nvm install` and `nvm use` before installing or
+running scripts. A configured or installed version is insufficient if another
+`node` binary appears earlier in the process's `PATH`; verify `node --version`
+and `node -p process.execPath`. These repository settings are not inherited by
+applications that install this package.
 
 The Nestarc ecosystem gates are artifact-explicit and independent:
 
@@ -69,6 +80,13 @@ See the [legacy fixture contract](https://github.com/nestarc/nestjs-tenancy/blob
 [modern fixture contract](https://github.com/nestarc/nestjs-tenancy/blob/main/test/ecosystem/modern-fixture/README.md) for the
 exact package tuples and commands.
 
+The current locks apply a focused `body-parser` security override: 2.4.0 in
+the root/modern graph and 1.20.9 in the legacy graph. Direct NestJS, Prisma,
+and published Nestarc versions and their integrity checks remain unchanged.
+This dependency refresh does not relabel `@nestarc/tenancy@0.16.1` as containing
+the current source changes. Consuming applications must update their own
+parser graph; a dependency's root npm overrides do not propagate to consumers.
+
 The automatic tenant-isolation guarantee does not currently cover:
 
 - Raw Prisma operations (`$queryRaw` / `$executeRaw`), which bypass the model extension.
@@ -76,6 +94,16 @@ The automatic tenant-isolation guarantee does not currently cover:
 - Prisma Data Proxy, managed poolers, or custom PgBouncer configurations. These remain outside the repository support guarantee; deployment owners must validate their exact configuration with equivalent matrix scenarios.
 
 See [Fail-Closed Mode](./prisma.md#fail-closed-mode), [Inbound Context Restoration](./integrations.md#inbound-context-restoration-interceptor), and the [PgBouncer Support Contract](./operations.md#pgbouncer-support-contract) for the corresponding operational requirements.
+
+## Migrating to 0.16.2
+
+Existing applications must satisfy two tightened contracts: select a patched
+Node runtime in the supported 22/24 lines, and replace any empty or
+ASCII-digit-only `TenantResourceKey` separator before constructing the helper.
+Supported NestJS/Prisma peer ranges and valid resource-key formats are
+unchanged. Follow the [deployment sequence](./operations.md#deploying-the-security-update)
+and [affected-key migration](./integrations.md#migrating-tenant-resource-key-separators).
+The application owns its HTTP parser updates even when upgrading tenancy.
 
 ## Deprecation Policy
 

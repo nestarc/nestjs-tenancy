@@ -6,7 +6,14 @@ This repository example runs the locally built `@nestarc/tenancy` package throug
 
 ## Run
 
-Install a supported Node.js version (22.13+ in the 22 line, or 24.x), npm, and Docker with Compose. From the repository root:
+Install a patched Node.js version (22.23.4 or later in the 22 line, or 24.22.1
+or later in the 24 line), npm, and Docker with Compose. This is the 0.16.2
+security minimum. If you use nvm, run
+`nvm install` and `nvm use` from the repository root to select `.nvmrc` before the commands
+below; verify `node --version` in that shell. Repository installs enable
+`engine-strict` in `.npmrc`.
+
+From the repository root:
 
 ```sh
 npm ci
@@ -59,6 +66,12 @@ The source files below are the executable example; the walkthrough links to them
 | [setup runner](https://github.com/nestarc/nestjs-tenancy/blob/main/scripts/quickstart.js) | Runs the setup and start commands above |
 
 The demo credentials and database passwords are deliberately public and work only as a local teaching fixture. Replace `demoAuthentication` with your authentication provider's credential verification and trusted membership lookup. A caller-supplied tenant header only selects a tenant; authorization decides whether the authenticated user can access it. `app.use(demoAuthentication)` runs before `app.init()`, so the principal exists before tenant extraction. Reordering Nest module imports does not establish that order.
+
+The root dependency graph overrides `body-parser` to 2.4.0 for the separate
+compressed-request DoS fix. Tenant checks run after body parsing and cannot
+protect an unpatched native decompressor. Applications adopting this example
+must patch their own Node binary and parser graph; see
+[runtime and HTTP parser security](../../docs/operations.md#runtime-and-http-parser-security).
 
 The Prisma service exposes only scoped project operations. Its base client remains private, uses `quickstart_app`, and is never injected into controllers. Reads intentionally have no tenant `WHERE` clause so PostgreSQL RLS performs the filtering. Creates provide Prisma's required `tenant_id` from `getCurrentTenantOrThrow()`; an extra `tenant_id` in the HTTP body is ignored. Missing context throws before a model query reaches PostgreSQL, while the database policies independently deny context-free reads and cross-tenant writes for the application role.
 

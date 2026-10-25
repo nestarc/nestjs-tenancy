@@ -15,20 +15,30 @@ A NestJS module that carries an authorized tenant ID through AsyncLocalStorage a
 
 ## Requirements
 
-| Dependency | Supported range for 0.16.x |
+| Dependency | 0.16.2 requirement |
 | --- | --- |
-| Node.js | `^22.13.0 \|\| ^24.0.0` |
+| Node.js | `^22.23.4 \|\| ^24.22.1` |
 | NestJS | 10 or 11 |
 | Prisma | 6 or 7; the example uses Prisma 7 with `@prisma/adapter-pg` |
 | Database | PostgreSQL with RLS enabled; use a supported, patched release |
 
 [Exact CI targets, optional peer combinations, pooler limits, and migrations](./docs/compatibility.md) are documented separately. Security fixes cover the latest published minor line; see [SECURITY.md](./SECURITY.md).
 
+The Node.js minimum is a **0.16.2 security change**.
+Published `0.16.1` retains its original engine metadata, but applications using it should also
+upgrade their Node runtime and HTTP parser dependencies. See the
+[runtime and parser security guidance](./docs/operations.md#runtime-and-http-parser-security).
+
 ## Quick Start
 
 Run the [complete NestJS + Prisma example](./examples/quickstart/README.md). It includes a Prisma schema, dedicated application database role, RLS SQL, two seeded tenants, authentication middleware, membership authorization, Prisma provider, and GET/POST controllers.
 
 From a checkout of this repository, with Node.js and Docker available:
+
+If you use nvm, run `nvm install` and `nvm use` after entering the checkout and
+before `npm ci`; `.nvmrc` selects Node.js 24.22.1. Check `node --version` in the
+shell that starts the application. Repository installs enforce the supported
+engine range through `.npmrc`.
 
 ```bash
 git clone https://github.com/nestarc/nestjs-tenancy.git
@@ -105,9 +115,10 @@ AsyncLocalStorage avoids Nest's `REQUEST`-scoped providers. The extension adds t
 | <a id="tenancymodule"></a><a id="tenancyservice"></a><a id="currenttenant-decorator"></a><a id="bypasstenancy-decorator"></a><a id="error-responses"></a><a id="error-hierarchy"></a>`TenancyModule`, `TenancyService`, decorators, errors | [Core API reference](./docs/api.md) |
 | <a id="testing-utilities"></a><a id="event-system"></a><a id="opentelemetry-integration"></a><a id="microservice-propagation"></a><a id="inbound-context-restoration-interceptor"></a><a id="non-http-missing-context-diagnostics"></a><a id="tenant-aware-caching"></a>Testing helpers, events, OpenTelemetry, HTTP/RPC propagation, caching | [Integrations](./docs/integrations.md) |
 | <a id="cli"></a><a id="pgbouncer-support-contract"></a><a id="rls-operational-notes"></a>SQL policies, application role, schema migration, PgBouncer, CLI diagnostics | [Database operations](./docs/operations.md) |
+| Deploying the security update: runtime, HTTP parser, and resource keys | [Upgrade and deployment sequence](./docs/operations.md#deploying-the-security-update) |
 | <a id="deprecation-policy"></a>Supported versions, exact CI lanes, deprecated APIs | [Compatibility and migrations](./docs/compatibility.md) |
 | Integrating the package with an AI coding agent | [Version-scoped agent usage guide](./docs/usage-for-agents.md) |
-| Maintaining this repository | [Documentation index](./docs/README.md) |
+| Maintaining this repository and preparing a release | [Documentation and release checklist](./docs/README.md#preparing-a-package-release) |
 
 <a id="security"></a>
 <a id="security-considerations"></a>

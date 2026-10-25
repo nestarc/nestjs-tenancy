@@ -7,6 +7,9 @@
     "typecheck": "tsc --noEmit",
     "verify:packages": "node scripts/verify-packages.cjs && npm ls @nestarc/tenancy @nestarc/api-keys @nestarc/rbac @nestarc/jobs @nestarc/outbox @nestarc/webhook @nestjs/common @nestjs/core @nestjs/platform-express @nestjs/schedule @opentelemetry/api @prisma/client @prisma/adapter-pg prisma --all"
   },
+  "overrides": {
+    "body-parser": "2.4.0"
+  },
   "dependencies": {
     "@nestarc/api-keys": "0.3.2",
     "@nestarc/jobs": "0.3.1",

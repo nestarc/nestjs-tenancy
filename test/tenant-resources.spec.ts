@@ -20,6 +20,42 @@ describe('tenant-scoped Redis/search resources', () => {
       .toBe('tenant:8:tenant:a:product:1');
   });
 
+  it.each(['', '0', '1', '123'])(
+    'rejects ambiguous separator %p before a tenant key can be generated',
+    (separator) => {
+      expect(() => new TenantResourceKey(context, {
+        transport: 'redis',
+        separator,
+      })).toThrow('[TenantResourceKey] separator must contain at least one non-digit character');
+    },
+  );
+
+  it.each([
+    ['|', 'org|8|tenant:a|product:1'],
+    ['1:', 'org1:81:tenant:a1:product:1'],
+  ])('preserves the existing key format with separator %p', (separator, expected) => {
+    const keys = new TenantResourceKey(context, {
+      transport: 'redis',
+      prefix: 'org',
+      separator,
+    });
+
+    expect(context.run('tenant:a', () => keys.create('product:1')))
+      .toBe(expected);
+  });
+
+  it.each([':', '|', '1:'])(
+    'keeps separator-bearing tenant IDs distinct with separator %p',
+    (separator) => {
+      const keys = new TenantResourceKey(context, { transport: 'redis', separator });
+
+      const first = context.run(`a${separator}b`, () => keys.create('c'));
+      const second = context.run('a', () => keys.create(`b${separator}c`));
+
+      expect(first).not.toBe(second);
+    },
+  );
+
   it('returns null and diagnoses a missing Redis context', () => {
     const onMissing = jest.fn();
     const keys = new TenantResourceKey(context, {
