@@ -7,10 +7,9 @@ Documented version: 0.16.2. Verify the consumer application's installed version;
 ## Start here
 
 - [Package README](./README.md)
-- [Consumer integration guide](./docs/usage-for-agents.md)
+- [Consumer integration guide](https://nestarc.dev/packages/tenancy/agent-guide)
 - [Runnable quickstart](./examples/quickstart/README.md)
-- [Security upgrade and deployment sequence](./docs/operations.md#deploying-the-security-update)
-- [Current documentation index](./docs/README.md)
+- [Security upgrade and deployment sequence](https://nestarc.dev/packages/tenancy/migration#upgrade-to-0-16-2)
 - [Official documentation](https://nestarc.dev/packages/tenancy/)
 - [Published API reference](https://nestarc.dev/api/tenancy/)
 

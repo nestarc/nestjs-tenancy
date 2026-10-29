@@ -29,7 +29,7 @@ The new minimum includes the Node.js fix for the Brotli decoder vulnerability
 also called HTTP2Shell. Untrusted Brotli decompression can be reached without
 HTTP/2. `npm audit` and package updates do not patch the Node binary. Consuming
 applications must also update their own HTTP parser graph; see
-[runtime and HTTP parser security](./docs/operations.md#runtime-and-http-parser-security).
+[runtime and HTTP parser security](https://nestarc.dev/packages/tenancy/migration#patch-the-runtime-and-http-parsers).
 
 ## Reporting a Vulnerability
 

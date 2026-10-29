@@ -1,0 +1,332 @@
+{
+  "sourceVersion": "0.16.2",
+  "sourceCommit": "ba295fd49c9dc0f406986385b583f5325611c782",
+  "snippets": [
+    {
+      "source": "http.md:typescript-block-1",
+      "lines": [
+        "TenancyModule.forRoot({",
+        "  tenantExtractor: 'X-Tenant-Id', // shorthand for HeaderTenantExtractor",
+        "})"
+      ]
+    },
+    {
+      "source": "http.md:typescript-block-2",
+      "lines": [
+        "import { SubdomainTenantExtractor } from '@nestarc/tenancy';",
+        "",
+        "TenancyModule.forRoot({",
+        "  tenantExtractor: new SubdomainTenantExtractor({",
+        "    excludeSubdomains: ['www', 'api'], // optional, defaults to ['www']",
+        "  }),",
+        "  validateTenantId: (id) => /^[a-z0-9-]+$/.test(id),",
+        "})",
+        "// tenant1.app.com \u2192 'tenant1'"
+      ]
+    },
+    {
+      "source": "http.md:typescript-block-3",
+      "lines": [
+        "import { JwtClaimTenantExtractor } from '@nestarc/tenancy';",
+        "",
+        "TenancyModule.forRoot({",
+        "  tenantExtractor: new JwtClaimTenantExtractor({",
+        "    claimKey: 'org_id',       // JWT payload key",
+        "    headerName: 'authorization', // optional, defaults to 'authorization'",
+        "  }),",
+        "})",
+        "// Authorization: Bearer eyJ... \u2192 payload.org_id"
+      ]
+    },
+    {
+      "source": "http.md:typescript-block-4",
+      "lines": [
+        "import { PathTenantExtractor } from '@nestarc/tenancy';",
+        "",
+        "TenancyModule.forRoot({",
+        "  tenantExtractor: new PathTenantExtractor({",
+        "    pattern: '/api/tenants/:tenantId/resources',",
+        "    paramName: 'tenantId',",
+        "  }),",
+        "  validateTenantId: (id) => /^[a-z0-9-]+$/.test(id),",
+        "})",
+        "// /api/tenants/acme/resources \u2192 'acme'"
+      ]
+    },
+    {
+      "source": "http.md:typescript-block-5",
+      "lines": [
+        "import {",
+        "  CompositeTenantExtractor,",
+        "  HeaderTenantExtractor,",
+        "  SubdomainTenantExtractor,",
+        "  JwtClaimTenantExtractor,",
+        "} from '@nestarc/tenancy';",
+        "",
+        "TenancyModule.forRoot({",
+        "  tenantExtractor: new CompositeTenantExtractor([",
+        "    new HeaderTenantExtractor('X-Tenant-Id'),",
+        "    new SubdomainTenantExtractor(),",
+        "    new JwtClaimTenantExtractor({ claimKey: 'org_id' }),",
+        "  ]),",
+        "  validateTenantId: (id) => /^[a-z0-9-]+$/.test(id),",
+        "})",
+        "// Returns the first non-null value, then HTTP middleware validates that value."
+      ]
+    },
+    {
+      "source": "http.md:typescript-block-6",
+      "lines": [
+        "import { TenantExtractor, TenancyRequest } from '@nestarc/tenancy';",
+        "",
+        "export class CookieTenantExtractor implements TenantExtractor {",
+        "  extract(request: TenancyRequest): string | null {",
+        "    const cookies = request.cookies;",
+        "    if (typeof cookies !== 'object' || cookies === null || !('tenant_id' in cookies)) {",
+        "      return null;",
+        "    }",
+        "    return typeof cookies.tenant_id === 'string' ? cookies.tenant_id : null;",
+        "  }",
+        "}"
+      ]
+    },
+    {
+      "source": "http.md:typescript-block-7",
+      "lines": [
+        "import { NestFactory } from '@nestjs/core';",
+        "import type { NestExpressApplication } from '@nestjs/platform-express';",
+        "import { AppModule } from './app.module';",
+        "import { authenticateRequest } from './authentication';",
+        "",
+        "async function bootstrap() {",
+        "  const app = await NestFactory.create<NestExpressApplication>(AppModule);",
+        "  // Verifies credentials and populates req.user; rejects invalid credentials.",
+        "  app.use(authenticateRequest);",
+        "  await app.init();",
+        "  await app.listen(3000);",
+        "}",
+        "void bootstrap();"
+      ]
+    },
+    {
+      "source": "http.md:typescript-block-8",
+      "lines": [
+        "import { ForbiddenException } from '@nestjs/common';",
+        "import { TenancyModule } from '@nestarc/tenancy';",
+        "",
+        "TenancyModule.forRoot({",
+        "  tenantExtractor: 'X-Tenant-Id',",
+        "  onTenantResolved: (tenantId, req) => {",
+        "    const principal = req.user;",
+        "    if (typeof principal !== 'object' || principal === null ||",
+        "        !('tenantIds' in principal) || !Array.isArray(principal.tenantIds) ||",
+        "        !principal.tenantIds.every((id: unknown) => typeof id === 'string') ||",
+        "        !principal.tenantIds.includes(tenantId)) {",
+        "      throw new ForbiddenException('Tenant access denied');",
+        "    }",
+        "  },",
+        "});"
+      ]
+    },
+    {
+      "source": "http.md:typescript-block-9",
+      "lines": [
+        "TenancyModule.forRoot({",
+        "  tenantExtractor: 'X-Tenant-Id',",
+        "  onTenantNotFound: (req) => {",
+        "    console.warn('No tenant', req.path ?? req.url);",
+        "  },",
+        "});"
+      ]
+    },
+    {
+      "source": "http.md:typescript-block-10",
+      "lines": [
+        "import { ForbiddenException } from '@nestjs/common';",
+        "",
+        "TenancyModule.forRoot({",
+        "  tenantExtractor: 'X-Tenant-Id',",
+        "  onTenantNotFound: () => {",
+        "    throw new ForbiddenException('Tenant header required');",
+        "  },",
+        "});"
+      ]
+    },
+    {
+      "source": "http.md:typescript-block-11",
+      "lines": [
+        "import type { Response } from 'express';",
+        "",
+        "TenancyModule.forRoot({",
+        "  tenantExtractor: 'X-Tenant-Id',",
+        "  onTenantNotFound: (_req, res) => {",
+        "    (res as unknown as Response).status(401).json({ message: 'Tenant header required' });",
+        "    return 'skip';",
+        "  },",
+        "});"
+      ]
+    },
+    {
+      "source": "http.md:typescript-block-12",
+      "lines": [
+        "import type { ServerResponse } from 'node:http';",
+        "",
+        "TenancyModule.forRoot({",
+        "  tenantExtractor: 'X-Tenant-Id',",
+        "  onTenantNotFound: (_req, res) => {",
+        "    const response = res as unknown as ServerResponse;",
+        "    response.statusCode = 401;",
+        "    response.setHeader('Content-Type', 'application/json');",
+        "    response.end(JSON.stringify({ message: 'Tenant header required' }));",
+        "    return 'skip';",
+        "  },",
+        "});"
+      ]
+    },
+    {
+      "source": "http.md:typescript-block-13",
+      "lines": [
+        "import { JwtClaimTenantExtractor } from '@nestarc/tenancy';",
+        "",
+        "TenancyModule.forRoot({",
+        "  tenantExtractor: 'X-Tenant-Id',",
+        "  crossCheck: {",
+        "    extractor: new JwtClaimTenantExtractor({ claimKey: 'tenantId' }),",
+        "    onFailed: 'reject',  // 'reject' (default) | 'log'",
+        "    required: true,       // reject when the trusted secondary source is missing",
+        "  },",
+        "})"
+      ]
+    },
+    {
+      "source": "api.md:typescript-block-1",
+      "lines": [
+        "import { TenancyModule } from '@nestarc/tenancy';",
+        "",
+        "TenancyModule.forRoot({",
+        "  tenantExtractor: 'X-Tenant-Id',",
+        "  dbSettingKey: 'app.current_tenant',",
+        "  // Omit this override to use the built-in UUID-like validator.",
+        "  validateTenantId: (id) => /^org_[a-z0-9-]+$/.test(id),",
+        "});"
+      ]
+    },
+    {
+      "source": "api.md:typescript-block-2",
+      "lines": [
+        "import { TenancyModule } from '@nestarc/tenancy';",
+        "",
+        "TenancyModule.forRootAsync({",
+        "  useFactory: async () => ({",
+        "    tenantExtractor: process.env.TENANT_HEADER ?? 'X-Tenant-Id',",
+        "  }),",
+        "});"
+      ]
+    },
+    {
+      "source": "api.md:typescript-block-3",
+      "lines": [
+        "import { Injectable } from '@nestjs/common';",
+        "import { TenancyModule, type TenancyModuleOptionsFactory } from '@nestarc/tenancy';",
+        "",
+        "@Injectable()",
+        "class TenancyConfigService implements TenancyModuleOptionsFactory {",
+        "  createTenancyOptions() {",
+        "    return { tenantExtractor: 'X-Tenant-Id' };",
+        "  }",
+        "}",
+        "",
+        "TenancyModule.forRootAsync({ useClass: TenancyConfigService });"
+      ]
+    },
+    {
+      "source": "api.md:typescript-block-4",
+      "lines": [
+        "import { Injectable, Module } from '@nestjs/common';",
+        "import { TenancyModule, type TenancyModuleOptionsFactory } from '@nestarc/tenancy';",
+        "",
+        "@Injectable()",
+        "class TenancyConfigService implements TenancyModuleOptionsFactory {",
+        "  createTenancyOptions() {",
+        "    return { tenantExtractor: 'X-Tenant-Id' };",
+        "  }",
+        "}",
+        "",
+        "@Module({ providers: [TenancyConfigService], exports: [TenancyConfigService] })",
+        "class TenancyConfigModule {}",
+        "",
+        "TenancyModule.forRootAsync({",
+        "  imports: [TenancyConfigModule],",
+        "  useExisting: TenancyConfigService,",
+        "});"
+      ]
+    },
+    {
+      "source": "api.md:typescript-block-5",
+      "lines": [
+        "import { Injectable } from '@nestjs/common';",
+        "import { TenancyService } from '@nestarc/tenancy';",
+        "",
+        "@Injectable()",
+        "export class SomeService {",
+        "  constructor(private readonly tenancy: TenancyService) {}",
+        "",
+        "  doSomething() {",
+        "    const tenantOrNull = this.tenancy.getCurrentTenant();    // string | null",
+        "    const tenantId = this.tenancy.getCurrentTenantOrThrow(); // string (throws if missing)",
+        "    const settingKey = this.tenancy.getDbSettingKey();       // canonical PostgreSQL setting",
+        "    return { tenantOrNull, tenantId, settingKey };",
+        "  }",
+        "}"
+      ]
+    },
+    {
+      "source": "api.md:typescript-block-6",
+      "lines": [
+        "import { Controller, Get } from '@nestjs/common';",
+        "import { CurrentTenant } from '@nestarc/tenancy';",
+        "",
+        "@Controller('users')",
+        "export class UsersController {",
+        "  @Get('me')",
+        "  whoAmI(@CurrentTenant() tenantId: string) {",
+        "    return { tenantId };",
+        "  }",
+        "}"
+      ]
+    },
+    {
+      "source": "api.md:typescript-block-7",
+      "lines": [
+        "import { Controller, Get } from '@nestjs/common';",
+        "import { BypassTenancy } from '@nestarc/tenancy';",
+        "",
+        "@Controller('health')",
+        "export class HealthController {",
+        "  @BypassTenancy()",
+        "  @Get()",
+        "  check() {",
+        "    return { status: 'ok' }; // No tenant header required",
+        "  }",
+        "}"
+      ]
+    },
+    {
+      "source": "api.md:typescript-block-8",
+      "lines": [
+        "import { TenantContextMissingError, TenancyContextRequiredError } from '@nestarc/tenancy';",
+        "",
+        "try {",
+        "  // any operation that requires tenant context",
+        "} catch (e) {",
+        "  if (e instanceof TenantContextMissingError) {",
+        "    // Catches both service-level and Prisma-level errors",
+        "  }",
+        "  if (e instanceof TenancyContextRequiredError) {",
+        "    // Catches only Prisma fail-closed errors (e.model, e.operation available)",
+        "  }",
+        "}"
+      ]
+    }
+  ]
+}

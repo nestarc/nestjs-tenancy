@@ -1,8 +1,8 @@
 # Runnable NestJS, Prisma 7, and PostgreSQL RLS example
 
-[Package overview](../../README.md) · [HTTP authentication guide](../../docs/http.md) · [Prisma guide](../../docs/prisma.md)
+[Package overview](../../README.md) · [HTTP authentication guide](https://nestarc.dev/packages/tenancy/extractors) · [Prisma guide](https://nestarc.dev/packages/tenancy/installation)
 
-This repository example runs the locally built `@nestarc/tenancy` package through its public exports. It uses the root lockfile and development dependencies: Nest Express 11, Prisma 7 with the PostgreSQL adapter, and PostgreSQL 16. See [the supported version matrix](../../docs/compatibility.md) for other combinations.
+This repository example runs the locally built `@nestarc/tenancy` package through its public exports. It uses the root lockfile and development dependencies: Nest Express 11, Prisma 7 with the PostgreSQL adapter, and PostgreSQL 16. See [the supported version matrix](https://nestarc.dev/packages/tenancy/migration) for other combinations.
 
 ## Run
 
@@ -71,7 +71,7 @@ The root dependency graph overrides `body-parser` to 2.4.0 for the separate
 compressed-request DoS fix. Tenant checks run after body parsing and cannot
 protect an unpatched native decompressor. Applications adopting this example
 must patch their own Node binary and parser graph; see
-[runtime and HTTP parser security](../../docs/operations.md#runtime-and-http-parser-security).
+[runtime and HTTP parser security](https://nestarc.dev/packages/tenancy/migration#patch-the-runtime-and-http-parsers).
 
 The Prisma service exposes only scoped project operations. Its base client remains private, uses `quickstart_app`, and is never injected into controllers. Reads intentionally have no tenant `WHERE` clause so PostgreSQL RLS performs the filtering. Creates provide Prisma's required `tenant_id` from `getCurrentTenantOrThrow()`; an extra `tenant_id` in the HTTP body is ignored. Missing context throws before a model query reaches PostgreSQL, while the database policies independently deny context-free reads and cross-tenant writes for the application role.
 
@@ -84,8 +84,8 @@ npm run test:docs
 npm run test:docs:e2e
 ```
 
-`test:docs` checks current Markdown links and anchors, builds the package, generates the example client, compiles the actual example and HTTP/API configuration snippets in strict mode, then dispatches in-process requests through the real Nest Express application. The documented bootstrap's application-owned imports are bound to this example's real module/authentication files for compilation. It verifies authentication before tenant extraction, rejection of missing credentials or unauthorized tenants, request context cleanup, body validation, and fail-closed model access. HTTP injection opens no network listener. This mode does not claim database isolation verification.
+`test:docs` checks current Markdown links and anchors, builds the package, generates the example client, compiles the actual example and the tracked HTTP/API snippet fixtures in strict mode, then dispatches in-process requests through the real Nest Express application. The snippet fixtures in `test/fixtures/http-api-snippets.json` preserve the strict HTTP/API examples from 0.16.2; their application-owned bootstrap imports are bound to this example's real module/authentication files for compilation. The ignored local `docs/` directory is not required. It verifies authentication before tenant extraction, rejection of missing credentials or unauthorized tenants, request context cleanup, body validation, and fail-closed model access. HTTP injection opens no network listener. This mode does not claim database isolation verification.
 
 `test:docs:e2e` additionally starts its own uniquely named PostgreSQL Compose project on an available loopback port, applies the same schema/SQL/seed files, runs the built `doctor --json --active` against the application role, and runs the real Prisma path for concurrent Alice/Bob reads and HTTP creation. Direct queries as the application role verify context-free reads and cross-tenant writes. The runner removes its test database after the check, without stopping the interactive example on port 5434.
 
-The verification source is [verify.ts](./verify.ts); the runner is [test-docs.js](https://github.com/nestarc/nestjs-tenancy/blob/main/scripts/test-docs.js). CI runs these commands against the same files linked in this walkthrough. For full package compatibility and integration coverage, see [the compatibility guide](../../docs/compatibility.md).
+The verification source is [verify.ts](./verify.ts); the runner is [test-docs.js](https://github.com/nestarc/nestjs-tenancy/blob/main/scripts/test-docs.js). CI runs these commands against the same files linked in this walkthrough. For supported release ranges and upgrade steps, see [the compatibility guide](https://nestarc.dev/packages/tenancy/migration).

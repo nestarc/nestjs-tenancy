@@ -24,7 +24,7 @@ function markdownAnchors(markdown) {
 // Follow current documentation links, while retaining historical reports as
 // historical artifacts rather than requiring their old references to stay live.
 function verifyLocalLinks() {
-  const pending = ['README.md', 'examples/quickstart/README.md'];
+  const pending = ['README.md', 'SECURITY.md', 'CHANGELOG.md', 'AGENTS.md', 'llms.txt', 'examples/quickstart/README.md'];
   const visited = new Set();
   while (pending.length) {
     const relative = pending.pop();
@@ -54,16 +54,13 @@ function verifyLocalLinks() {
 }
 
 function verifyHttpSnippets() {
-  const snippets = ['http.md', 'api.md'].flatMap((document) => {
-    const source = fs.readFileSync(path.join(ROOT, 'docs', document), 'utf8');
-    return [...source.matchAll(/```typescript\r?\n([\s\S]*?)```/g)].map((match) => {
-      // Bind the documented application-owned bootstrap imports to the actual
-      // runnable example, keeping every configuration/decorator body unchanged.
-      return match[1]
-        .replace("from './app.module'", "from './app'")
-        .replace("import { authenticateRequest } from './authentication'", "import { demoAuthentication as authenticateRequest } from './auth'");
-    });
-  });
+  // Keep strict API examples under test ownership: docs/ is local-only and is
+  // intentionally absent from fresh checkouts and published packages.
+  const fixtures = JSON.parse(fs.readFileSync(path.join(ROOT, 'test', 'fixtures', 'http-api-snippets.json'), 'utf8'));
+  const snippets = fixtures.snippets.map(({ lines }) => lines.join('\n')
+    // Bind application-owned imports to the executable quickstart.
+    .replace("from './app.module'", "from './app'")
+    .replace("import { authenticateRequest } from './authentication'", "import { demoAuthentication as authenticateRequest } from './auth'"));
   if (snippets.length < 20) throw new Error('HTTP/API snippet coverage unexpectedly fell below 20 blocks');
   for (const required of ['request.cookies', 'req.user', 'as unknown as Response', 'as unknown as ServerResponse']) {
     if (!snippets.some((snippet) => snippet.includes(required))) {
@@ -92,7 +89,7 @@ function verifyHttpSnippets() {
       getNewLine: () => '\n',
     }));
   }
-  console.log(`[docs] strict-compiled ${snippets.length} actual HTTP/API Markdown snippets`);
+  console.log(`[docs] strict-compiled ${snippets.length} HTTP/API snippet fixtures`);
 }
 
 async function main() {

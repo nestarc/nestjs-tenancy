@@ -14,7 +14,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   separators tighten compatibility. Select a patched Node runtime and migrate
   affected key configuration before deploying 0.16.2. Valid existing
   key formats and NestJS/Prisma peer ranges remain unchanged.
-- Follow the [deployment sequence](./docs/operations.md#deploying-the-security-update)
+- Follow the [deployment sequence](https://nestarc.dev/packages/tenancy/migration#upgrade-to-0-16-2)
   for application-owned parser updates, key migration, process replacement,
   and verification. Published `0.16.1` does not contain these source changes;
   runtime and parser updates should be applied independently of publication.
@@ -165,7 +165,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 - Selected v0.16.0 for removal of the deprecated event payload `request` type
   field and v0.17.0 for `interactiveTransactionSupport`, with last-supported
   versions, migrations, privacy rationale, and consumer-usage uncertainty in
-  the [deprecated API removal ADR](https://github.com/nestarc/nestjs-tenancy/blob/main/docs/2026-08-30-deprecated-api-removal-adr.md). TEN-B09 now implements the v0.16.0 event-field removal while preserving transparent transaction support through v0.16.x.
+  the [deprecated API removal ADR](https://github.com/nestarc/nestjs-tenancy/blob/ba295fd49c9dc0f406986385b583f5325611c782/docs/2026-08-30-deprecated-api-removal-adr.md). TEN-B09 now implements the v0.16.0 event-field removal while preserving transparent transaction support through v0.16.x.
 - Documented the exact four-way NestJS/Prisma consumer evidence, valid optional cache/event pairings, and the separation between install/type/runtime smoke and database behavior lanes.
 - Defined the latest-minor-only security support policy for the 0.16.x line and separated the older 0.15.x Node.js metadata from the supported runtime contract and the NestJS/Prisma combinations actually exercised by CI.
 - Documented the exact Node.js 22.13.0 minimum lane, current Node.js 22/24 lanes, and completion of the sibling-package compatibility prerequisite.
@@ -177,7 +177,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ### Current Deprecation Inventory
 
 The exact decisions and migration contract are recorded in the
-[deprecated API removal ADR](https://github.com/nestarc/nestjs-tenancy/blob/main/docs/2026-08-30-deprecated-api-removal-adr.md).
+[deprecated API removal ADR](https://github.com/nestarc/nestjs-tenancy/blob/ba295fd49c9dc0f406986385b583f5325611c782/docs/2026-08-30-deprecated-api-removal-adr.md).
 
 | API | Added | Deprecated since | Last supported | Removal target | Replacement |
 |-----|-------|------------------|----------------|----------------|-------------|

@@ -4,6 +4,9 @@
 /build
 /tmp
 
+# Local documentation (maintained outside Git)
+/docs/
+
 # Logs
 logs
 *.log
