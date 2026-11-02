@@ -85,6 +85,84 @@ describe('TenantContextDiagnostics', () => {
     );
   });
 
+  it.each(['warn', 'throw'] as const)(
+    'contains an async hook rejection without delaying the %s policy',
+    async (policy) => {
+      const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+      const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+      let rejectHook!: (reason: Error) => void;
+      const hookResult = new Promise<void>((_resolve, reject) => {
+        rejectHook = reject;
+      });
+      const diagnostics = new TenantContextDiagnostics({
+        policy,
+        onMissing: jest.fn().mockReturnValue(hookResult),
+      });
+
+      if (policy === 'throw') {
+        expect(() => diagnostics.report(diagnostic)).toThrow(TenantContextMissingError);
+        expect(warn).not.toHaveBeenCalled();
+      } else {
+        expect(diagnostics.report(diagnostic)).toBeUndefined();
+        expect(warn).toHaveBeenCalledTimes(1);
+      }
+      expect(error).not.toHaveBeenCalled();
+
+      rejectHook(new Error('async hook failed'));
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      expect(error).toHaveBeenCalledTimes(1);
+      expect(error).toHaveBeenCalledWith(
+        'Missing-context diagnostic hook failed',
+        expect.stringContaining('async hook failed'),
+      );
+    },
+  );
+
+  it('contains async event and telemetry failures without replacing the policy error', async () => {
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    const onMissing = jest.fn();
+    const diagnostics = new TenantContextDiagnostics(
+      { policy: 'throw', onMissing },
+      { emit: jest.fn().mockRejectedValue(new Error('async event failed')) },
+      { recordMissingContext: jest.fn().mockRejectedValue(new Error('async telemetry failed')) },
+    );
+
+    expect(() => diagnostics.report(diagnostic)).toThrow(TenantContextMissingError);
+    expect(onMissing).toHaveBeenCalledWith(diagnostic);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(error).toHaveBeenCalledTimes(2);
+    expect(error).toHaveBeenCalledWith(
+      'Missing-context event reporter failed',
+      expect.stringContaining('async event failed'),
+    );
+    expect(error).toHaveBeenCalledWith(
+      'Missing-context telemetry reporter failed',
+      expect.stringContaining('async telemetry failed'),
+    );
+  });
+
+  it('accepts fulfilled async hooks without logging a failure', async () => {
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    const completed: string[] = [];
+    const diagnostics = new TenantContextDiagnostics({
+      policy: 'warn',
+      onMissing: async ({ resource }) => {
+        await Promise.resolve();
+        completed.push(resource ?? 'unknown');
+      },
+    });
+
+    expect(diagnostics.report(diagnostic)).toBeUndefined();
+    expect(completed).toEqual([]);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(completed).toEqual(['orders']);
+    expect(error).not.toHaveBeenCalled();
+  });
+
   it('contains event and telemetry reporter failures before throwing', () => {
     const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
     const diagnostics = new TenantContextDiagnostics(
@@ -159,6 +237,34 @@ describe('TenantContextDiagnostics', () => {
     expect(error).toHaveBeenCalledWith(
       'Invalid-context telemetry reporter failed',
       expect.stringContaining('telemetry failed'),
+    );
+  });
+
+  it('contains async invalid-context reporter failures even with the ignore policy', async () => {
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    const diagnostics = new TenantContextDiagnostics(
+      { policy: 'ignore' },
+      { emit: jest.fn().mockRejectedValue(new Error('async event failed')) },
+      {
+        recordMissingContext: jest.fn(),
+        recordInvalidContext: jest.fn().mockRejectedValue('non-Error rejection'),
+      },
+    );
+
+    expect(diagnostics.reportInvalid({
+      transport: 'grpc',
+      operation: 'consume',
+    })).toBeUndefined();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(error).toHaveBeenCalledTimes(2);
+    expect(error).toHaveBeenCalledWith(
+      'Invalid-context event reporter failed',
+      expect.stringContaining('async event failed'),
+    );
+    expect(error).toHaveBeenCalledWith(
+      'Invalid-context telemetry reporter failed',
+      undefined,
     );
   });
 });

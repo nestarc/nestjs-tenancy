@@ -363,17 +363,17 @@ describe('shared validation workflow', () => {
       'nest11-prisma7',
     ]);
     expect(declaredPrismaVersions).toEqual([
-      '^7.10.0',
-      '^7.10.0',
-      '^7.10.0',
+      '^7.10.1',
+      '^7.10.1',
+      '^7.10.1',
     ]);
     expect(lockRootPrismaVersions).toEqual(declaredPrismaVersions);
     expect(resolvedPrismaVersions).toEqual([
-      '7.10.0',
-      '7.10.0',
-      '7.10.0',
+      '7.10.1',
+      '7.10.1',
+      '7.10.1',
     ]);
-    expect(prismaVersions).toEqual(['6.19.3', '7.10.0']);
+    expect(prismaVersions).toEqual(['6.19.3', '7.10.1']);
     expect(actualCardinality).toEqual(REQUIRED_MATRIX_CARDINALITY);
     expect(Object.values(actualCardinality).reduce((a, b) => a + b, 0)).toBe(
       15,

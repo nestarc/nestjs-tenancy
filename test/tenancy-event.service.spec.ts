@@ -2,6 +2,8 @@ import { TenancyEventService } from '../src/events/tenancy-event.service';
 import { TenancyEvents } from '../src/events/tenancy-events';
 
 describe('TenancyEventService', () => {
+  afterEach(() => jest.restoreAllMocks());
+
   describe('when EventEmitter2 is not available', () => {
     it('should not throw on emit()', async () => {
       const moduleRef = {
@@ -19,13 +21,12 @@ describe('TenancyEventService', () => {
   });
 
   describe('when EventEmitter2 is available', () => {
-    it('should delegate emit() to the resolved emitter', async () => {
-      const mockEmitter = { emit: jest.fn().mockReturnValue(true) };
-      const EventEmitter2Class = class EventEmitter2 {};
-      jest.mock('@nestjs/event-emitter', () => ({
-        EventEmitter2: EventEmitter2Class,
-      }), { virtual: true });
-
+    it('should synchronously dispatch listeners from the resolved emitter', async () => {
+      const listener = jest.fn();
+      const mockEmitter = {
+        listenersAny: jest.fn().mockReturnValue([]),
+        listeners: jest.fn().mockReturnValue([listener]),
+      };
       const moduleRef = {
         get: jest.fn().mockReturnValue(mockEmitter),
       };
@@ -34,21 +35,20 @@ describe('TenancyEventService', () => {
       await service.onModuleInit();
 
       const payload = { tenantId: 'test-tenant' };
-      service.emit(TenancyEvents.RESOLVED, payload);
+      expect(service.emit(TenancyEvents.RESOLVED, payload)).toBeUndefined();
 
-      expect(mockEmitter.emit).toHaveBeenCalledWith(TenancyEvents.RESOLVED, payload);
+      expect(mockEmitter.listeners).toHaveBeenCalledWith(TenancyEvents.RESOLVED);
+      expect(listener).toHaveBeenCalledWith(payload);
+      expect(listener.mock.contexts[0]).toBe(mockEmitter);
     });
 
     it('should isolate listener errors from callers', async () => {
       const mockEmitter = {
-        emit: jest.fn(() => {
-          throw new Error('listener failed');
-        }),
+        listenersAny: jest.fn().mockReturnValue([]),
+        listeners: jest.fn().mockReturnValue([
+          () => { throw new Error('listener failed'); },
+        ]),
       };
-      const EventEmitter2Class = class EventEmitter2 {};
-      jest.mock('@nestjs/event-emitter', () => ({
-        EventEmitter2: EventEmitter2Class,
-      }), { virtual: true });
 
       const moduleRef = {
         get: jest.fn().mockReturnValue(mockEmitter),
@@ -61,11 +61,28 @@ describe('TenancyEventService', () => {
       await service.onModuleInit();
 
       expect(() => service.emit(TenancyEvents.RESOLVED, { tenantId: 'test' })).not.toThrow();
-      expect(mockEmitter.emit).toHaveBeenCalledWith(TenancyEvents.RESOLVED, { tenantId: 'test' });
       expect(loggerSpy).toHaveBeenCalled();
       expect(loggerSpy.mock.calls[0][0]).toContain(TenancyEvents.RESOLVED);
+    });
 
-      loggerSpy.mockRestore();
+    it('logs non-Error Promise rejections without rejecting the caller', async () => {
+      const mockEmitter = {
+        listenersAny: () => [],
+        listeners: () => [() => Promise.reject('listener failed')],
+      };
+      const service = new TenancyEventService({ get: () => mockEmitter } as any);
+      const loggerSpy = jest
+        .spyOn((service as any).logger, 'error')
+        .mockImplementation(() => undefined);
+      await service.onModuleInit();
+
+      expect(service.emit(TenancyEvents.RESOLVED, { tenantId: 'test' })).toBeUndefined();
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      expect(loggerSpy).toHaveBeenCalledWith(
+        `Tenancy event listener failed for "${TenancyEvents.RESOLVED}"`,
+        undefined,
+      );
     });
   });
 });

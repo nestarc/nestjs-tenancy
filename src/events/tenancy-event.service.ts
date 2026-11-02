@@ -9,11 +9,16 @@ import { TenancyEventMap } from './tenancy-events';
  * If `@nestjs/event-emitter` is installed and `EventEmitterModule.forRoot()`
  * is imported, events are emitted via EventEmitter2.
  * If not installed, all emit() calls are silently ignored.
+ * Emission remains synchronous; returned Promises are observed without delaying
+ * the caller. Synchronous throws and Promise rejections are logged.
  */
 @Injectable()
 export class TenancyEventService implements OnModuleInit {
   private readonly logger = new Logger(TenancyEventService.name);
-  private emitter: Pick<EventEmitter2, 'emit'> | null = null;
+  private emitter: (Pick<EventEmitter2, 'listeners' | 'listenersAny'> & {
+    /** EventEmitter2 exposes the current event to listeners as `this.event`. */
+    event?: string;
+  }) | null = null;
 
   constructor(private readonly moduleRef: ModuleRef) {}
 
@@ -29,13 +34,35 @@ export class TenancyEventService implements OnModuleInit {
   }
 
   emit<K extends keyof TenancyEventMap>(event: K, payload: TenancyEventMap[K]): void {
-    try {
-      this.emitter?.emit(event as string, payload);
-    } catch (err) {
+    const emitter = this.emitter;
+    if (!emitter) return;
+
+    const reportError = (error: unknown): void => {
       this.logger.error(
         `Tenancy event listener failed for "${String(event)}"`,
-        err instanceof Error ? err.stack : undefined,
+        error instanceof Error ? error.stack : undefined,
       );
+    };
+
+    try {
+      const invoke = (listener: (...values: unknown[]) => unknown, values: unknown[]): void => {
+        emitter.event = event;
+        // Observe each result before calling the next listener. emitAsync()
+        // cannot do this if a later listener throws before its Promise.all().
+        void Promise.resolve(listener.apply(emitter, values)).catch(reportError);
+      };
+
+      // Match EventEmitter2's emit order and snapshots without changing its
+      // registrations. The returned listeners retain once/many wrappers.
+      for (const listener of emitter.listenersAny().slice()) {
+        invoke(listener, [event, payload]);
+      }
+      for (const listener of emitter.listeners(event).slice()) {
+        invoke(listener, [payload]);
+      }
+    } catch (error) {
+      // Preserve emit's stop-on-synchronous-throw behavior for this emission.
+      reportError(error);
     }
   }
 }

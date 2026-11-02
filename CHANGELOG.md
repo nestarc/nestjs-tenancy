@@ -6,6 +6,63 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.16.3] - 2026-11-02
+
+### Upgrade notes
+
+- This patch requires no configuration changes or database migration from
+  `0.16.2`. Node.js, NestJS, and Prisma requirements are unchanged.
+- Diagnostic hooks and event listeners must return their asynchronous work's
+  promise for rejection handling. Detached work remains the application's
+  responsibility; reporting and event emission do not await asynchronous work.
+
+### Fixed
+
+- Contained rejected promises returned by missing-context hooks, diagnostic
+  reporters, and tenancy event listeners. Reporting and event emission remain
+  synchronous, do not await asynchronous work, and log failures without replacing
+  the missing-context policy error. Event listeners retain their invocation order,
+  `once`/wildcard behavior, and stop-on-synchronous-throw behavior; promises returned
+  by earlier listeners remain observed if a later listener throws.
+
+### Changed
+
+- Explicitly typed asynchronous `onMissing` callbacks while preserving existing
+  synchronous callbacks, including those that return an ignored value.
+- Included this changelog in the npm package and updated the README and agent
+  entry point with the `0.16.3` asynchronous failure-handling contract.
+
+### Development dependency security
+
+- Refreshed compatible transitive patches for `@humanfs/node`,
+  `brace-expansion`, `handlebars`, `proxy-addr`, `fast-uri`, and `js-yaml`.
+- Aligned the development Prisma CLI, client, and PostgreSQL adapter on
+  `7.10.1`, including the upstream `mysql2` and `deepmerge-ts` security fixes.
+  Current package-consumer, peer-compatibility, and PgBouncer Prisma 7 lanes
+  now target that patch. Historical published-only ecosystem fixtures retain
+  their independent locks and provenance.
+- Updated the development Nest Express adapter to `11.2.8` and scoped a
+  `multer@2.5.0` override beneath it. The adapter patch preserves HTTP 400 for
+  unexpected upload fields after Multer's error-message change; the Multer
+  patch handles late asynchronous file filters after request teardown.
+  Root overrides do not propagate to consuming applications; applications
+  must maintain their own dependency graphs.
+- On 2026-11-02, the root audit decreased from 42 to 30 affected package
+  entries: 27 moderate and 3 low, with no high or critical entries. Remaining
+  advisories originate in `minimatch`, `glob`, and `deepmerge` in the test/lint
+  toolchain. Their fixes require unsupported transitive major updates or are
+  not yet published; forced tool downgrades and major overrides were not
+  applied. `npm audit --omit=dev` reports zero vulnerabilities. These counts
+  cover the root lockfile, not the independent ecosystem fixture lockfiles.
+
+### Tests
+
+- Added 11 regression cases for asynchronous hook and reporter failures, mixed
+  synchronous/asynchronous listener failures, and EventEmitter2 dispatch
+  compatibility, including `onAny`, wildcard, `once`, and listener context.
+- Used an explicit 60-second TTL in cache-isolation integration fixtures so
+  these assertions do not expire after 60 milliseconds under parallel load.
+
 ## [0.16.2] - 2026-10-26
 
 ### Upgrade notes

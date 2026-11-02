@@ -10,12 +10,25 @@ A NestJS module that carries an authorized tenant ID through AsyncLocalStorage a
 
 [Quick Start](#quick-start) · [Existing app setup](#add-to-an-existing-app) · [Usage reference](#usage-reference) · [Compatibility](https://nestarc.dev/packages/tenancy/migration) · [AI agent guide](https://nestarc.dev/packages/tenancy/agent-guide) · [Official docs](https://nestarc.dev/packages/tenancy/)
 
+## Changes in 0.16.3
+
+Diagnostic hooks and tenancy event listeners now log rejected promises returned
+by asynchronous work. Reporting and event emission remain synchronous, and
+missing-context policies take effect immediately. Listener order, `once`, and
+wildcard behavior are preserved, including when a later listener throws
+synchronously. Return asynchronous work's promise so its rejection can be handled.
+
+Upgrading from `0.16.2` requires no configuration changes or database migration.
+Runtime and peer requirements are unchanged. See the [changelog](./CHANGELOG.md#0163---2026-11-02)
+for the complete patch notes, including development dependency security updates
+and remaining audit findings.
+
 <a id="prerequisites"></a>
 <a id="support-and-compatibility"></a>
 
 ## Requirements
 
-| Dependency | 0.16.2 requirement |
+| Dependency | 0.16.3 requirement |
 | --- | --- |
 | Node.js | `^22.23.4 \|\| ^24.22.1` |
 | NestJS | 10 or 11 |
@@ -132,6 +145,7 @@ Guides live on the official site. Check each generated API reference's source re
 - **Raw SQL uses an explicit transaction.** `$queryRaw` and `$executeRaw` are outside the model extension. Run them on the callback client from `tenancyTransaction()` so the tenant setting and SQL share one transaction. The package binds its `set_config()` arguments; application SQL still needs proper parameterization.
 - **Interactive transactions use the helper.** The default extension's batch transaction does not automatically work inside a Prisma interactive transaction. The helper's raw transaction client does not auto-inject tenant fields. [Transaction contract](https://nestarc.dev/packages/tenancy/installation#interactive-transactions)
 - **Non-HTTP transports need their own trust boundary.** Kafka, Bull, and gRPC restoration need an explicit validator and producer-to-tenant authorization. WebSocket inbound enforcement is not provided. [RPC guide](https://nestarc.dev/packages/tenancy/microservice#inbound-context-restoration)
+- **Diagnostics and events do not await asynchronous work.** Missing-context hooks and tenancy event listeners must return their asynchronous work's promise for rejection handling. Returned promise rejections and synchronous throws are logged; the missing-context policy still takes effect synchronously. Detached work remains the application's responsibility.
 - **Adapter and pooler support has conditions.** Public structural request types do not prove every adapter hook works; review [HTTP prerequisites](https://nestarc.dev/packages/tenancy/installation#http-adapter-prerequisites). The pinned self-hosted PgBouncer transaction-mode matrix has a [specific contract](https://nestarc.dev/packages/tenancy/installation#pgbouncer-transaction-mode); managed poolers and Data Proxy require separate validation.
 
 ## License

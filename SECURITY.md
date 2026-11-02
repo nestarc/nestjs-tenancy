@@ -13,7 +13,7 @@ supported line.
 | 0.15.x and earlier    | ❌ Upgrade to 0.16.x |
 
 Package security support and upstream runtime maintenance are separate.
-Version `0.16.2` requires `^22.23.4 || ^24.22.1`. CI and release source gates
+Versions `0.16.2` and later in `0.16.x` require `^22.23.4 || ^24.22.1`. CI and release source gates
 target exact Node.js 22.23.4, the current
 Node.js 22 release, and the current Node.js 24 release. Published `0.16.1`
 retains its original `^22.13.0 || ^24.0.0` metadata. Upgrade the actual runtime

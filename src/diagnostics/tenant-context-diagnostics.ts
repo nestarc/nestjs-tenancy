@@ -38,8 +38,14 @@ type TenantContextTelemetryReporter =
 export interface TenantContextDiagnosticsOptions {
   /** Existing silent/pass-through behavior remains the default. */
   policy?: MissingTenantContextPolicy;
-  /** Optional hook for structured logging or application metrics. */
-  onMissing?: (diagnostic: MissingTenantContextDiagnostic) => void;
+  /**
+   * Optional hook for structured logging or application metrics.
+   * Returned promises are observed for failures without delaying the policy.
+   * Synchronous throws and promise rejections are logged and contained.
+   */
+  onMissing?:
+    | ((diagnostic: MissingTenantContextDiagnostic) => void)
+    | ((diagnostic: MissingTenantContextDiagnostic) => Promise<void>);
 }
 
 /**
@@ -63,7 +69,7 @@ export class TenantContextDiagnostics {
     this.onMissing = options.onMissing;
   }
 
-  private readonly onMissing?: (diagnostic: MissingTenantContextDiagnostic) => void;
+  private readonly onMissing: TenantContextDiagnosticsOptions['onMissing'];
 
   report(diagnostic: MissingTenantContextDiagnostic): void {
     if (this.policy === 'ignore') return;
@@ -110,14 +116,18 @@ export class TenantContextDiagnostics {
     );
   }
 
-  private invokeReporter(message: string, reporter: () => void): void {
-    try {
-      reporter();
-    } catch (error) {
+  private invokeReporter(message: string, reporter: () => unknown): void {
+    const reportError = (error: unknown): void => {
       this.logger.error(
         message,
         error instanceof Error ? error.stack : undefined,
       );
+    };
+
+    try {
+      void Promise.resolve(reporter()).catch(reportError);
+    } catch (error) {
+      reportError(error);
     }
   }
 

@@ -2,11 +2,12 @@
 
 > NestJS tenant context and Prisma integration for PostgreSQL Row Level Security.
 
-Documented version: 0.16.2. Verify the consumer application's installed version; published 0.16.1 does not contain the current security changes.
+Documented version: 0.16.3. Verify the consumer application's installed version; 0.16.3 adds asynchronous diagnostic/event rejection handling, and the runtime security minimum introduced in 0.16.2 still applies.
 
 ## Start here
 
 - [Package README](./README.md)
+- [Changelog](./CHANGELOG.md)
 - [Consumer integration guide](https://nestarc.dev/packages/tenancy/agent-guide)
 - [Runnable quickstart](./examples/quickstart/README.md)
 - [Security upgrade and deployment sequence](https://nestarc.dev/packages/tenancy/migration#upgrade-to-0-16-2)
@@ -20,5 +21,6 @@ Documented version: 0.16.2. Verify the consumer application's installed version;
 - Shared models and explicit no-context helpers skip client behavior, not database RLS.
 - Use the transaction helper for raw SQL and interactive transactions.
 - RPC validators are explicit during 0.x; caches and messages require their own tenant scope.
+- Diagnostic hooks and event listeners must return asynchronous work's promise for rejection handling; reporting and missing-context policy enforcement do not await it.
 
 This is a convenience index for clients that choose to read it. It does not guarantee discovery, ranking, or citations. Repository maintainers can use AGENTS.md; application consumers should use the integration guide.

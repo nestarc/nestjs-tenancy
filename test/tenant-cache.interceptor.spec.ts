@@ -372,6 +372,8 @@ describe('TenantCacheInterceptor', () => {
 });
 
 describe('TenantCacheInterceptor integration', () => {
+  // These tests verify cache isolation, not expiry; TTL is in milliseconds.
+  const cacheTtlMs = 60_000;
   let app: INestApplication;
   let appUrl: string;
   let tenantHitCount = 0;
@@ -382,7 +384,7 @@ describe('TenantCacheInterceptor integration', () => {
   class TestController {
     @UseInterceptors(TenantCacheInterceptor)
     @CacheKey('products')
-    @CacheTTL(60)
+    @CacheTTL(cacheTtlMs)
     @Get('/products')
     products() {
       tenantHitCount += 1;
@@ -393,7 +395,7 @@ describe('TenantCacheInterceptor integration', () => {
     @BypassTenancy()
     @SharedTenantCache()
     @CacheKey('catalog')
-    @CacheTTL(60)
+    @CacheTTL(cacheTtlMs)
     @Get('/catalog')
     catalog() {
       sharedHitCount += 1;
@@ -403,7 +405,7 @@ describe('TenantCacheInterceptor integration', () => {
     @UseInterceptors(TenantCacheInterceptor)
     @BypassTenancy()
     @CacheKey('public')
-    @CacheTTL(60)
+    @CacheTTL(cacheTtlMs)
     @Get('/public')
     publicRoute() {
       publicHitCount += 1;
