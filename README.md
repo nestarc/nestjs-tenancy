@@ -99,6 +99,57 @@ npm install --save-dev prisma@7
 4. Query through the extended client. For multiple operations in one interactive transaction, use [`tenancyTransaction()`](https://nestarc.dev/packages/tenancy/installation#interactive-transactions) and only its callback client. Write required tenant fields explicitly there.
 5. Run [`check` and `doctor`](https://nestarc.dev/packages/tenancy/cli) with the same setting key and runtime database role, then test tenant A/B and missing-context access.
 
+### Tenant-scoping an audit transaction
+
+In this development version, pass `tenancyTransactionCallback()` directly to
+`withAuditTransaction()` when `@nestarc/audit-log` owns the transaction. Build
+a dedicated client from the same base Prisma client with the audit extension
+first and the soft-delete extension second. Keep the per-query tenancy extension
+on the separate client used for ordinary queries.
+
+```ts
+import { tenancyTransactionCallback } from '@nestarc/tenancy';
+import { createAuditExtension, type AuditTransactionMethods } from '@nestarc/audit-log';
+import { createPrismaSoftDeleteExtension } from '@nestarc/soft-delete';
+import { Prisma } from './generated/prisma/client';
+
+const trackedModels = ['Invoice'];
+const client = basePrisma
+  .$extends(createAuditExtension({
+    trackedModels, consistency: 'atomic-required', prismaModule: { Prisma },
+    tenantRequired: true, tenantResolver: () => tenancy.getCurrentTenantOrThrow(),
+  }))
+  .$extends(createPrismaSoftDeleteExtension({
+    softDeleteModels: trackedModels, auditLifecycle: 'atomic-required',
+  }));
+
+// The soft-delete extension preserves the audit method at runtime. Its
+// published declarations do not carry that method through the second $extends.
+const lifecycle = client as unknown as Pick<
+  AuditTransactionMethods<Prisma.TransactionClient>, 'withAuditTransaction'
+>;
+
+// Inside the authenticated request's authorized tenant context.
+await lifecycle.withAuditTransaction(tenancyTransactionCallback(
+  tenancy,
+  async (tx: Prisma.TransactionClient) => tx.invoice.delete({ where: { id: invoiceId } }),
+));
+```
+
+Use the transaction owner's callback client for all database work. The wrapper sets
+the transaction-local RLS key before invoking your callback and rejects a missing
+tenant or a setting already bound to another tenant. Keep one authorized tenant
+throughout the transaction. Supply tenant fields explicitly for inserts. The
+transaction owner controls commit, rollback and transaction options.
+
+The example assumes an `Invoice` model with a soft-delete field, an installed
+audit table, and RLS policies enforced for the application role. Configure
+`databaseMapping` on the audit extension for mapped models or columns.
+For tenancy-owned transactions continue to use `tenancyTransaction()`.
+
+Run `npm run test:e2e:audit-lifecycle` with Docker to exercise the packaged
+candidate with `audit-log@0.7.0` and `soft-delete@0.7.5` against PostgreSQL.
+
 ## How it works
 
 ```text

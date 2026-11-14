@@ -249,3 +249,4 @@ jobs:
           ECOSYSTEM_SKIP_DOCKER: '1'
           DATABASE_URL: postgresql://tenancy:tenancy@127.0.0.1:5433/tenancy_test
           APP_DATABASE_URL: postgresql://ecosystem_app:ecosystem_app@127.0.0.1:5433/tenancy_test
+      - run: npm run test:e2e:audit-lifecycle

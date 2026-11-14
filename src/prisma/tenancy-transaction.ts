@@ -39,6 +39,44 @@ export interface TenancyTransactionOptions {
 }
 
 /**
+ * Wrap the callback of an existing interactive transaction (for example,
+ * audit-log's withAuditTransaction). Pass it directly to the transaction owner.
+ * Each invocation binds the current tenant before running work on that same tx.
+ * A different tenant already bound to the configured setting is rejected.
+ *
+ * Use a client without the per-query tenancy extension for this transaction.
+ * Its owner controls commit, rollback, timeout and isolation. Keep the same
+ * authorized tenant for its lifetime and write tenant fields explicitly.
+ */
+export function tenancyTransactionCallback<TTx extends PrismaTransactionContext, TResult>(
+  tenancyService: TenancyService,
+  callback: (tx: TTx) => Promise<TResult>,
+  options?: Pick<TenancyTransactionOptions, 'dbSettingKey'>,
+): (tx: TTx) => Promise<TResult> {
+  return async (tx) => {
+    const settingKey = tenancyService.resolveDbSettingKey(options?.dbSettingKey);
+    const tenantId = tenancyService.getCurrentTenantOrThrow();
+    // Prisma 7 can expose nested $transaction on an interactive client.
+    // $connect belongs to the root client in both Prisma 6 and 7.
+    if ('$connect' in tx && typeof tx.$connect === 'function') {
+      throw new TypeError('Expected the interactive transaction client passed by the transaction owner.');
+    }
+
+    // A pooled connection can carry an empty custom setting after a prior
+    // transaction. Check and set it in one statement on the owner's connection.
+    const count = await tx.$executeRaw`
+      SELECT set_config(${settingKey}, ${tenantId}, TRUE)
+      WHERE NULLIF(current_setting(${settingKey}, TRUE), '') IS NULL
+         OR current_setting(${settingKey}, TRUE) = ${tenantId}
+    `;
+    if (count !== 1) {
+      throw new Error('The transaction is already bound to another tenant.');
+    }
+    return callback(tx);
+  };
+}
+
+/**
  * Executes a Prisma interactive transaction with RLS tenant context.
  *
  * Runs `set_config()` as the first statement inside the interactive

@@ -6,6 +6,13 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- Add `tenancyTransactionCallback()` for transaction owners such as
+  `audit-log`'s `withAuditTransaction()`. It binds the authorized tenant to the
+  owner's PostgreSQL transaction using public Prisma APIs. The
+  [integration example](./README.md#tenant-scoping-an-audit-transaction) covers
+  the migration from transparent interactive transaction detection. On release,
+  update the site's interactive transaction and Prisma extension chaining guides.
+
 ## [0.16.3] - 2026-11-02
 
 ### Upgrade notes
