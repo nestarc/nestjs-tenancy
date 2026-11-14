@@ -10,25 +10,20 @@ A NestJS module that carries an authorized tenant ID through AsyncLocalStorage a
 
 [Quick Start](#quick-start) · [Existing app setup](#add-to-an-existing-app) · [Usage reference](#usage-reference) · [Compatibility](https://nestarc.dev/packages/tenancy/migration) · [AI agent guide](https://nestarc.dev/packages/tenancy/agent-guide) · [Official docs](https://nestarc.dev/packages/tenancy/)
 
-## Changes in 0.16.3
+## Changes in 0.16.4
 
-Diagnostic hooks and tenancy event listeners now log rejected promises returned
-by asynchronous work. Reporting and event emission remain synchronous, and
-missing-context policies take effect immediately. Listener order, `once`, and
-wildcard behavior are preserved, including when a later listener throws
-synchronously. Return asynchronous work's promise so its rejection can be handled.
-
-Upgrading from `0.16.2` requires no configuration changes or database migration.
-Runtime and peer requirements are unchanged. See the [changelog](./CHANGELOG.md#0163---2026-11-02)
-for the complete patch notes, including development dependency security updates
-and remaining audit findings.
+Use `tenancyTransactionCallback()` when another component opens the Prisma
+transaction. It sets the authorized tenant on the owner's connection before
+your callback runs. The [audit transaction example](#tenant-scoping-an-audit-transaction)
+shows how to migrate soft-delete and restore operations from transparent
+transaction detection while keeping the audit records atomic.
 
 <a id="prerequisites"></a>
 <a id="support-and-compatibility"></a>
 
 ## Requirements
 
-| Dependency | 0.16.3 requirement |
+| Dependency | 0.16.4 requirement |
 | --- | --- |
 | Node.js | `^22.23.4 \|\| ^24.22.1` |
 | NestJS | 10 or 11 |
@@ -101,7 +96,7 @@ npm install --save-dev prisma@7
 
 ### Tenant-scoping an audit transaction
 
-In this development version, pass `tenancyTransactionCallback()` directly to
+Pass `tenancyTransactionCallback()` directly to
 `withAuditTransaction()` when `@nestarc/audit-log` owns the transaction. Build
 a dedicated client from the same base Prisma client with the audit extension
 first and the soft-delete extension second. Keep the per-query tenancy extension

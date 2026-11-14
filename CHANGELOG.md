@@ -6,12 +6,18 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-- Add `tenancyTransactionCallback()` for transaction owners such as
-  `audit-log`'s `withAuditTransaction()`. It binds the authorized tenant to the
-  owner's PostgreSQL transaction using public Prisma APIs. The
-  [integration example](./README.md#tenant-scoping-an-audit-transaction) covers
-  the migration from transparent interactive transaction detection. On release,
-  update the site's interactive transaction and Prisma extension chaining guides.
+## [0.16.4] - 2026-11-14
+
+- Added `tenancyTransactionCallback()` to initialize the authorized PostgreSQL
+  RLS tenant inside a Prisma transaction opened by another component. The
+  callback rejects root clients, missing tenant context, and attempts to switch
+  tenants on the same transaction.
+- Documented how to use the callback with `audit-log@0.7.0` and
+  `soft-delete@0.7.5`. Delete and restore operations share a transaction with
+  their audit records. The [integration example](./README.md#tenant-scoping-an-audit-transaction)
+  uses public Prisma APIs and a dedicated client built from the same base client.
+- Added a packaged-consumer PostgreSQL integration test to CI covering concurrent
+  tenant isolation and rollback when an audit insert fails.
 
 ## [0.16.3] - 2026-11-02
 

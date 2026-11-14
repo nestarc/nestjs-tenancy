@@ -2,7 +2,7 @@
 
 > NestJS tenant context and Prisma integration for PostgreSQL Row Level Security.
 
-Documented version: 0.16.3. Verify the consumer application's installed version; 0.16.3 adds asynchronous diagnostic/event rejection handling, and the runtime security minimum introduced in 0.16.2 still applies.
+Documented version: 0.16.4. Use `tenancyTransactionCallback()` to initialize the authorized tenant in a transaction opened by another component. See the [audit transaction example](./README.md#tenant-scoping-an-audit-transaction).
 
 ## Start here
 
