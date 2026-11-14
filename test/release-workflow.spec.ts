@@ -127,6 +127,7 @@ const GATE_RUN_COMMANDS = {
   'ecosystem-modern-e2e': [
     'npm ci',
     'npm run test:e2e:ecosystem:modern:published-only',
+    'npm run test:e2e:audit-lifecycle',
   ],
 } as const;
 
