@@ -1,25 +1,24 @@
 # @nestarc/tenancy
 
-> NestJS tenant context and Prisma integration for PostgreSQL Row Level Security.
+> Multi-tenancy for NestJS apps that share PostgreSQL tables and use Prisma. The module carries the authorized tenant ID to Prisma queries so PostgreSQL Row Level Security (RLS) can enforce tenant isolation.
 
-Documented version: 0.16.4. Use `tenancyTransactionCallback()` to initialize the authorized tenant in a transaction opened by another component. See the [audit transaction example](./README.md#tenant-scoping-an-audit-transaction).
+Documented version: 0.16.5. Check the published version with `npm view @nestarc/tenancy version` and the installed version with `npm ls @nestarc/tenancy` in the consuming app. Use that release's declarations and [changelog](./CHANGELOG.md) when reading examples.
 
 ## Start here
 
-- [Package README](./README.md)
-- [Changelog](./CHANGELOG.md)
-- [Consumer integration guide](https://nestarc.dev/packages/tenancy/agent-guide)
-- [Runnable quickstart](./examples/quickstart/README.md)
+- [Add to an existing NestJS app](./README.md#add-to-an-existing-app) — install `@nestarc/tenancy`, configure the runtime database role, and register the Prisma extension. Check the [Node.js, NestJS, and Prisma requirements](./README.md#requirements) first.
+- [Consumer integration guide](https://nestarc.dev/packages/tenancy/agent-guide) — follow the versioned setup sequence and validate access for two tenants.
+- [Run the quickstart](./README.md#quick-start) — use a repository checkout and Docker to run the example with seeded data. The [example walkthrough](./examples/quickstart/README.md) includes the expected success, 401, and 403 responses.
 - [Security upgrade and deployment sequence](https://nestarc.dev/packages/tenancy/migration#upgrade-to-0-16-2)
 - [Official documentation](https://nestarc.dev/packages/tenancy/)
 - [Published API reference](https://nestarc.dev/api/tenancy/)
 
 ## Essential boundaries
 
-- Authenticate before tenant extraction and authorize the principal for the selected tenant.
+- Register authentication middleware before Nest initialization and authorize the principal for the selected tenant. [HTTP integration guide](https://nestarc.dev/packages/tenancy/extractors)
 - Apply RLS policies and use an application DB role without superuser/BYPASSRLS privileges.
 - Shared models and explicit no-context helpers skip client behavior, not database RLS.
-- Use the transaction helper for raw SQL and interactive transactions.
+- Use `tenancyTransaction()` to open a transaction on the raw root Prisma client. When another component opens it, pass `tenancyTransactionCallback()` to the owner and preserve the row count returned by `$executeRaw`. See the [audit transaction example](./README.md#tenant-scoping-an-audit-transaction).
 - RPC validators are explicit during 0.x; caches and messages require their own tenant scope.
 - Diagnostic hooks and event listeners must return asynchronous work's promise for rejection handling; reporting and missing-context policy enforcement do not await it.
 

@@ -96,6 +96,16 @@ describe('tenancyTransactionCallback', () => {
     expect(work).not.toHaveBeenCalled();
   });
 
+  it('keeps user work from running when the owner discards the binding row count', async () => {
+    const tx = { $executeRaw: jest.fn().mockResolvedValue(undefined) };
+    const work = jest.fn(async () => 'unexpected');
+    const run = tenancyTransactionCallback(service, work);
+
+    await expect(context.run('tenant-a', () => run(tx))).rejects.toThrow();
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(work).not.toHaveBeenCalled();
+  });
+
   it('forwards the exact transaction and propagates a business error to its owner', async () => {
     const failure = new Error('write failed');
     const tx = { $executeRaw: jest.fn().mockResolvedValue(1) };

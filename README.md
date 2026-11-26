@@ -10,6 +10,14 @@ A NestJS module that carries an authorized tenant ID through AsyncLocalStorage a
 
 [Quick Start](#quick-start) · [Existing app setup](#add-to-an-existing-app) · [Usage reference](#usage-reference) · [Compatibility](https://nestarc.dev/packages/tenancy/migration) · [AI agent guide](https://nestarc.dev/packages/tenancy/agent-guide) · [Official docs](https://nestarc.dev/packages/tenancy/)
 
+## Changes in 0.16.5
+
+This patch updates the CLI setup example and integration guidance. The upgrade from 0.16.4 requires no configuration change, database migration, or cache-key rotation.
+
+- **JWT authentication.** Register authentication middleware with `app.use()` before `app.init()` or `app.listen()`. It must verify the same token the tenant extractor reads. Check the authenticated user's membership in the selected tenant before granting access. [Authentication and cookie examples](https://nestarc.dev/packages/tenancy/extractors)
+- **Prisma transaction wrappers.** When another component opens the transaction, pass it `tenancyTransactionCallback()`. Its transaction client must return the row count from `$executeRaw`. The tenant binding must report exactly one row before your callback runs. [Audit transaction example](#tenant-scoping-an-audit-transaction)
+- **User-specific responses.** Members of the same tenant share the default cache entry for a route. Skip caching for personalized responses, or include the verified user and any permissions that affect the response in the route's cache key. [Cache guide](https://nestarc.dev/packages/tenancy/caching)
+
 ## Changes in 0.16.4
 
 Use `tenancyTransactionCallback()` when another component opens the Prisma
@@ -23,7 +31,7 @@ transaction detection while keeping the audit records atomic.
 
 ## Requirements
 
-| Dependency | 0.16.4 requirement |
+| Dependency | 0.16.5 requirement |
 | --- | --- |
 | Node.js | `^22.23.4 \|\| ^24.22.1` |
 | NestJS | 10 or 11 |
@@ -41,7 +49,9 @@ upgrade their Node runtime and HTTP parser dependencies. See the
 
 Run the [complete NestJS + Prisma example](./examples/quickstart/README.md). It includes a Prisma schema, dedicated application database role, RLS SQL, two seeded tenants, authentication middleware, membership authorization, Prisma provider, and GET/POST controllers.
 
-From a checkout of this repository, with Node.js and Docker available:
+The commands below run the example from the repository's default branch and require Node.js and Docker.
+To reproduce the example for an installed package, run `npm ls @nestarc/tenancy` in your app
+and clone the matching Git tag (for example, add `--branch v0.16.5` to `git clone` for version 0.16.5).
 
 If you use nvm, run `nvm install` and `nvm use` after entering the checkout and
 before `npm ci`; `.nvmrc` selects Node.js 24.22.1. Check `node --version` in the
@@ -81,11 +91,19 @@ The first command checks documentation links, types, and HTTP contracts; the sec
 
 ## Add to an existing app
 
-Install the package and matching Prisma packages. This example uses Prisma 7; use the same supported exact version for the CLI, client, and adapter in your lockfile.
+If your NestJS app already uses a supported Prisma 6 or 7 client with PostgreSQL, add tenancy and check the versions resolved in your app:
 
 ```bash
-npm install @nestarc/tenancy @prisma/client@7 @prisma/adapter-pg@7 pg dotenv
-npm install --save-dev prisma@7
+npm install @nestarc/tenancy
+npm ls @nestarc/tenancy @nestjs/core @prisma/client prisma
+```
+
+For a NestJS app adopting Prisma for the first time, install tenancy together with the Prisma 7.10.1 versions used by the runnable example:
+
+```bash
+npm install --save-exact @nestarc/tenancy @prisma/client@7.10.1 @prisma/adapter-pg@7.10.1
+npm install --save-dev --save-exact prisma@7.10.1
+npm install pg dotenv
 ```
 
 1. Add a required tenant column to each tenant-scoped model. Generate and review database roles, grants, indexes, and RLS policies with [`npx @nestarc/tenancy init`](https://nestarc.dev/packages/tenancy/cli). Use a non-owner application role without `SUPERUSER` or `BYPASSRLS` privileges.
@@ -136,6 +154,10 @@ the transaction-local RLS key before invoking your callback and rejects a missin
 tenant or a setting already bound to another tenant. Keep one authorized tenant
 throughout the transaction. Supply tenant fields explicitly for inserts. The
 transaction owner controls commit, rollback and transaction options.
+
+If the owner wraps the Prisma transaction client, forward the numeric row count
+from `$executeRaw`. The binding statement must report one row for
+`tenancyTransactionCallback()` to run the business callback.
 
 The example assumes an `Invoice` model with a soft-delete field, an installed
 audit table, and RLS policies enforced for the application role. Configure
@@ -188,7 +210,7 @@ Guides live on the official site. Check each generated API reference's source re
 
 - **Database configuration remains necessary.** Apply RLS to every tenant table and connect with the intended application role. RLS protects rows; it does not authorize caller-supplied tenant IDs or isolate CPU/IO, caches, search indexes, or jobs.
 - **Fail-closed is enabled for model queries.** Missing context throws `TenancyContextRequiredError` unless explicitly bypassed at the client layer. `sharedModels` and `withoutTenant()` skip extension hooks; they do not disable database RLS or grant administrative access. [Details](https://nestarc.dev/packages/tenancy/installation#extension-options)
-- **Raw SQL uses an explicit transaction.** `$queryRaw` and `$executeRaw` are outside the model extension. Run them on the callback client from `tenancyTransaction()` so the tenant setting and SQL share one transaction. The package binds its `set_config()` arguments; application SQL still needs proper parameterization.
+- **Raw SQL uses an explicit transaction.** `$queryRaw` and `$executeRaw` are outside the model extension. Open a transaction with `tenancyTransaction()`, or pass `tenancyTransactionCallback()` to the component that opens it. Run parameterized SQL on the callback client so it uses the same connection as the tenant setting.
 - **Interactive transactions use the helper.** The default extension's batch transaction does not automatically work inside a Prisma interactive transaction. The helper's raw transaction client does not auto-inject tenant fields. [Transaction contract](https://nestarc.dev/packages/tenancy/installation#interactive-transactions)
 - **Non-HTTP transports need their own trust boundary.** Kafka, Bull, and gRPC restoration need an explicit validator and producer-to-tenant authorization. WebSocket inbound enforcement is not provided. [RPC guide](https://nestarc.dev/packages/tenancy/microservice#inbound-context-restoration)
 - **Diagnostics and events do not await asynchronous work.** Missing-context hooks and tenancy event listeners must return their asynchronous work's promise for rejection handling. Returned promise rejections and synchronous throws are logged; the missing-context policy still takes effect synchronously. Detached work remains the application's responsibility.

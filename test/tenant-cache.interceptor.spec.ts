@@ -4,12 +4,14 @@ import {
   ExecutionContext,
   Get,
   INestApplication,
+  Req,
   UseInterceptors,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { CacheKey, CacheModule, CacheTTL } from '@nestjs/cache-manager';
 import { Test } from '@nestjs/testing';
 import { createHash } from 'crypto';
+import type { NextFunction, Request, Response } from 'express';
 import request from 'supertest';
 import {
   TENANT_CACHE_INTERCEPTOR_OPTIONS,
@@ -379,6 +381,28 @@ describe('TenantCacheInterceptor integration', () => {
   let tenantHitCount = 0;
   let sharedHitCount = 0;
   let publicHitCount = 0;
+  let profileHitCount = 0;
+
+  // Both test sessions are authorized for the same tenant.
+  const profileSessions = new Map([
+    ['Bearer demo-alice', { subject: 'alice', tenant: 'tenant-a' }],
+    ['Bearer demo-bob', { subject: 'bob', tenant: 'tenant-a' }],
+  ]);
+  type ProfileRequest = Request & { subject?: string };
+
+  function authenticateProfile(req: ProfileRequest, res: Response, next: NextFunction): void {
+    const session = profileSessions.get(req.get('authorization') ?? '');
+    if (!session) {
+      res.sendStatus(401);
+      return;
+    }
+    if (session.tenant !== req.get('x-tenant-id')) {
+      res.sendStatus(403);
+      return;
+    }
+    req.subject = session.subject;
+    next();
+  }
 
   @Controller()
   class TestController {
@@ -411,12 +435,20 @@ describe('TenantCacheInterceptor integration', () => {
       publicHitCount += 1;
       return { hit: publicHitCount };
     }
+
+    // Caching is enabled per route in this app. A profile varies by principal.
+    @Get('/profile')
+    profile(@Req() req: ProfileRequest) {
+      profileHitCount += 1;
+      return { subject: req.subject, tenant: TenancyContext.getCurrentTenantId(), hit: profileHitCount };
+    }
   }
 
   beforeEach(async () => {
     tenantHitCount = 0;
     sharedHitCount = 0;
     publicHitCount = 0;
+    profileHitCount = 0;
 
     const moduleRef = await Test.createTestingModule({
       imports: [
@@ -430,6 +462,7 @@ describe('TenantCacheInterceptor integration', () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
+    app.use('/profile', authenticateProfile);
     await app.listen(0, '127.0.0.1');
     appUrl = await app.getUrl();
   });
@@ -474,5 +507,16 @@ describe('TenantCacheInterceptor integration', () => {
   it('should not cache public route without tenant when route is not shared', async () => {
     await request(appUrl).get('/public').expect(200, { hit: 1 });
     await request(appUrl).get('/public').expect(200, { hit: 2 });
+  });
+
+  it('runs a personalized route on every request for authenticated users of the same tenant', async () => {
+    const getProfile = (token: string) => request(appUrl)
+      .get('/profile')
+      .set('x-tenant-id', 'tenant-a')
+      .set('authorization', token);
+
+    await getProfile('Bearer demo-alice').expect(200, { subject: 'alice', tenant: 'tenant-a', hit: 1 });
+    await getProfile('Bearer demo-bob').expect(200, { subject: 'bob', tenant: 'tenant-a', hit: 2 });
+    await getProfile('Bearer demo-alice').expect(200, { subject: 'alice', tenant: 'tenant-a', hit: 3 });
   });
 });

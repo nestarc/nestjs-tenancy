@@ -1,7 +1,7 @@
 import { TenancyService } from '../services/tenancy.service';
 
 /**
- * Minimal transaction client shape required by `tenancyTransaction`.
+ * Minimal transaction client shape for the tenancy transaction helpers.
  */
 export interface PrismaTransactionContext {
   $executeRaw(
@@ -43,6 +43,9 @@ export interface TenancyTransactionOptions {
  * audit-log's withAuditTransaction). Pass it directly to the transaction owner.
  * Each invocation binds the current tenant before running work on that same tx.
  * A different tenant already bound to the configured setting is rejected.
+ * If the owner wraps the transaction client, forward the row count returned by
+ * Prisma's `$executeRaw`. The binding must report exactly one row before the
+ * callback can run.
  *
  * Use a client without the per-query tenancy extension for this transaction.
  * Its owner controls commit, rollback, timeout and isolation. Keep the same
@@ -77,13 +80,15 @@ export function tenancyTransactionCallback<TTx extends PrismaTransactionContext,
 }
 
 /**
- * Executes a Prisma interactive transaction with RLS tenant context.
+ * Opens a Prisma interactive transaction on the raw root client and binds the
+ * current tenant. When another component opens the transaction, pass
+ * `tenancyTransactionCallback()` to that owner.
  *
  * Runs `set_config()` as the first statement inside the interactive
  * transaction, ensuring the PostgreSQL session variable is set on the
  * same connection that executes the callback queries.
  *
- * @param prisma - PrismaClient instance (not extended — raw client)
+ * @param prisma - Raw root Prisma client
  * @param tenancyService - TenancyService to read current tenant
  * @param callback - Function receiving the transaction client
  * @param options - Transaction wait/timeout, isolation level, and DB setting key

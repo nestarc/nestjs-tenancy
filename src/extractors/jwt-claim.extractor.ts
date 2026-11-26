@@ -25,14 +25,15 @@ function isTokenOutsideTimeWindow(payload: Record<string, unknown>): boolean {
 }
 
 /**
- * Extracts the tenant ID from a JWT claim in the Authorization header.
+ * Reads the tenant ID from a claim in a bearer token.
  *
- * **IMPORTANT: This extractor does NOT verify the JWT signature.**
- * It decodes the payload (Base64URL) without cryptographic validation.
- * You MUST ensure that JWT authentication (e.g., `@nestjs/passport` AuthGuard,
- * or an upstream auth middleware) has already validated the token before this
- * extractor runs. Using this extractor without prior JWT verification allows
- * attackers to forge tenant IDs via crafted tokens.
+ * Authenticate the same token in upstream middleware before tenant extraction.
+ * Verify its signature, expected issuer and audience, and enforce your token
+ * lifetime policy. Nest guards run after the tenant middleware.
+ *
+ * The extractor decodes the payload and returns `null` for an expired numeric
+ * `exp` or a numeric `nbf` in the future. Authorize the authenticated principal
+ * for the selected tenant before permitting tenant-scoped work.
  */
 export class JwtClaimTenantExtractor implements TenantExtractor {
   private readonly claimKey: string;

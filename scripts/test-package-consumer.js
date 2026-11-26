@@ -300,6 +300,11 @@ function runProfile(
     run('npm', ['ls', '--depth=0'], { cwd: consumerDirectory });
 
     const packageShape = assertInstalledPackageShape(consumerDirectory);
+    if (profile.id === 'public-shape') {
+      run(process.execPath, [
+        '--test', path.join(workspaceDirectory, 'test', 'package-consumer', 'declaration-guidance.test.mjs'),
+      ], { cwd: consumerDirectory });
+    }
     if (profile.verifyCachePeersAbsent) {
       assertCachePeersAbsent(consumerDirectory, packageShape.packageDirectory);
     }

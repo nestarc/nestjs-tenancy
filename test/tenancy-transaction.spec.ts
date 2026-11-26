@@ -59,6 +59,29 @@ describe('tenancyTransaction', () => {
     ).rejects.toThrow('No tenant context available');
   });
 
+  it('runs work after a structural wrapper completes tenant setup without returning a row count', async () => {
+    let finishStatement!: (rowCount: number) => void;
+    const pendingStatement = new Promise<number>((resolve) => { finishStatement = resolve; });
+    const executeStatement = jest.fn().mockReturnValue(pendingStatement);
+    const tx: PrismaTransactionContext = {
+      async $executeRaw(strings, ...values): Promise<void> {
+        await executeStatement(strings, ...values);
+      },
+    };
+    const client: PrismaTransactionClient<typeof tx> = {
+      $transaction: (work) => work(tx),
+    };
+    const callback = jest.fn(async (connection: typeof tx) => connection);
+
+    const result = context.run('tenant-123', () => tenancyTransaction(client, service, callback));
+    expect(callback).not.toHaveBeenCalled();
+    finishStatement(1);
+
+    await expect(result).resolves.toBe(tx);
+    expect(executeStatement).toHaveBeenCalledTimes(1);
+    expect(callback).toHaveBeenCalledTimes(1);
+  });
+
   it('should pass transaction options', async () => {
     const { mockPrisma, mockTransaction } = buildMockPrisma();
 

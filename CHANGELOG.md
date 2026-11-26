@@ -6,6 +6,24 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.16.5] - 2026-11-26
+
+- The upgrade from 0.16.4 requires no configuration change, database migration,
+  or cache-key rotation.
+- Corrected the JWT extractor's JSDoc and the `tenancy init` example to show
+  how to register authentication middleware before Nest initialization and
+  authorize the authenticated user for the selected tenant.
+- Clarified when to use each Prisma transaction helper. A transaction client
+  passed to `tenancyTransactionCallback()` must return the numeric row count
+  from `$executeRaw`. The callback runs only if the tenant binding reports one row.
+- Documented how the JWT extractor handles numeric `exp` and `nbf` claims.
+  The README also explains how to skip caching for personalized responses or
+  include the verified user and relevant permissions in the cache key.
+- Added regression tests for the packaged TypeScript declaration comments, CLI
+  setup output, transaction wrappers, and personalized routes that skip caching.
+- Updated the README and packaged `llms.txt` with installation steps for existing
+  Prisma applications and instructions for running the example from the matching release tag.
+
 ## [0.16.4] - 2026-11-14
 
 - Added `tenancyTransactionCallback()` to initialize the authorized PostgreSQL

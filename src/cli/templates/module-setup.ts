@@ -59,9 +59,10 @@ export function generateModuleSetup(options: ModuleSetupOptions): string {
       lines.push('  tenantExtractor: new SubdomainTenantExtractor(),');
       break;
     case 'JWT Claim':
-      lines.push("  // WARNING: JWT signature must be verified BEFORE tenancy middleware.");
-      lines.push("  // Add express-jwt or similar middleware BEFORE TenancyModule.");
       lines.push(
+        '  // In bootstrap, register app.use(authenticate) before app.init() or app.listen().',
+        '  // Have authenticate verify the JWT signature, issuer, audience and token lifetime.',
+        '  // Check the authenticated principal\'s membership in the selected tenant before granting access.',
         "  tenantExtractor: new JwtClaimTenantExtractor({ claimKey: 'tenant_id' }),",
       );
       break;

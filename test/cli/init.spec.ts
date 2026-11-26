@@ -197,7 +197,7 @@ describe('CLI init', () => {
     expect(content).toContain('new SubdomainTenantExtractor()');
   });
 
-  itWithTempDirectory('should generate proper imports for JWT Claim extractor', async (tmpDir) => {
+  itWithTempDirectory('generates JWT setup with authentication registered before Nest initializes', async (tmpDir) => {
     fs.writeFileSync(
       path.join(tmpDir, 'schema.prisma'),
       'model User {\n  id Int @id\n  tenant_id String\n}\n',
@@ -218,6 +218,13 @@ describe('CLI init', () => {
     const content = fs.readFileSync(modulePath, 'utf-8');
     expect(content).toContain('JwtClaimTenantExtractor');
     expect(content).toContain('TenancyModule, JwtClaimTenantExtractor');
+    const guidance = content.replace(/^\s*\/\/\s?/gm, '').replace(/\s+/g, ' ');
+    expect(guidance).toMatch(/signature/i);
+    expect(guidance).toMatch(/app\.use\s*\(/);
+    const beforeInitialization = /before\b[^.]*\bapp\.(?:init|listen)\s*\(/i;
+    const bootstrapSequence = /app\.use\s*\([^;]+\);?\s*(?:await\s+)?app\.(?:init|listen)\s*\(/;
+    expect(beforeInitialization.test(guidance) || bootstrapSequence.test(guidance)).toBe(true);
+    expect(guidance).not.toMatch(/before TenancyModule\b/i);
     expect(content).toContain('// import { createPrismaTenancyExtension }');
   });
 
